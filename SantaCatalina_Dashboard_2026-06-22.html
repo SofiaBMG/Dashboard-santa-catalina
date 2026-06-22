@@ -1,0 +1,2131 @@
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Santa Catalina · Sistema de Reportes</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&amp;family=DM+Sans:wght@300;400;500&amp;display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0c0e13; --surface:#12151d; --surface2:#181b26; --surface3:#1e2230;
+  --border:rgba(255,255,255,0.06); --text:#e6e2d8; --dim:#ffffff;
+  --norte:#4fa3d4; --norte-dim:rgba(79,163,212,0.09);
+  --sur:#d4944f;   --sur-dim:rgba(212,148,79,0.09);
+  --total:#7ec8a0; --total-dim:rgba(126,200,160,0.09);
+  --accent:#c9a84c; --accent-dim:rgba(201,168,76,0.12);
+  --ok:#7ec8a0; --err:#d46a6a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(201,168,76,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.022) 1px,transparent 1px);background-size:64px 64px;pointer-events:none;z-index:0}
+
+/* ── NAV TABS ── */
+.app-nav{position:sticky;top:0;z-index:50;display:flex;background:var(--surface);border-bottom:1px solid var(--border)}
+.app-tab{flex:1;padding:18px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:transparent;border-bottom:2px solid transparent;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px}
+.app-tab:hover{color:var(--text);background:var(--surface2)}
+.app-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.app-tab .tab-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* ── VIEWS ── */
+.view{display:none;animation:fadeIn .35s ease both}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:36px 32px 60px}
+
+/* ── HEADER ── */
+.dash-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.eyebrow{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);opacity:.7;margin-bottom:8px}
+h1{font-family:'Cormorant Garamond',serif;font-size:clamp(34px,4vw,54px);font-weight:300;line-height:1;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--accent);font-weight:600}
+.badge{background:var(--accent-dim);border:1px solid rgba(201,168,76,.25);color:var(--accent);padding:6px 16px;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+
+/* ── SELECTOR ── */
+.selector{display:flex;gap:3px;margin-bottom:32px}
+.btn-sel{position:relative;overflow:hidden;padding:16px 36px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;background:var(--surface);color:var(--dim);transition:color .3s,background .3s;flex:1;max-width:220px}
+.btn-sel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;transform:scaleX(0);transform-origin:left;transition:transform .4s ease}
+.btn-sel:hover{color:var(--text);background:var(--surface2)}
+.btn-sel.norte::before{background:var(--norte)} .btn-sel.norte.active{background:var(--norte-dim);color:var(--norte)}
+.btn-sel.sur::before{background:var(--sur)}     .btn-sel.sur.active{background:var(--sur-dim);color:var(--sur)}
+.btn-sel.total::before{background:var(--total)} .btn-sel.total.active{background:var(--total-dim);color:var(--total)}
+.btn-sel.active::before{transform:scaleX(1)}
+.btn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.norte .btn-dot{background:var(--norte)} .sur .btn-dot{background:var(--sur)} .total .btn-dot{background:var(--total)}
+
+/* ── PANEL ── */
+.panel{display:none;animation:fadeIn .4s ease both}
+.panel.active{display:block}
+
+/* ── KPI ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:2px}
+.kpi{background:var(--surface);padding:26px 22px;position:relative;overflow:hidden;transition:transform .2s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi-bar{position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-lbl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+.kpi-val{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;line-height:1}
+.kpi-sub{font-size:13px;color:var(--dim);margin-top:7px}
+.kpi-tag{display:inline-block;font-size:11px;padding:4px 10px;margin-top:8px;letter-spacing:.05em}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:1.5fr 1fr;gap:2px;margin-bottom:2px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:2px}
+.g2e{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px}
+
+/* ── CARD ── */
+.card{background:var(--surface);padding:28px}
+.card-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;margin-bottom:4px}
+.card-sub{font-size:13px;color:var(--dim);margin-bottom:20px;letter-spacing:.03em}
+
+/* ── SLABEL ── */
+.slabel{font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--accent);opacity:.75;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── TABLES ── */
+.dtable,.qtable,.ltable{width:100%;border-collapse:collapse;font-size:14px}
+.dtable thead th,.qtable thead th,.ltable thead th{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:0 0 12px;text-align:left;border-bottom:1px solid var(--border)}
+.dtable thead th:not(:first-child),.ltable thead th:not(:first-child){text-align:right}
+.qtable thead th:not(:first-child){text-align:center}
+.dtable tbody tr,.qtable tbody tr,.ltable tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
+.dtable tbody tr:hover,.qtable tbody tr:hover,.ltable tbody tr:hover{background:rgba(255,255,255,.02)}
+.dtable tbody td,.ltable tbody td{padding:11px 0}
+.dtable tbody td:not(:first-child),.ltable tbody td:not(:first-child){text-align:right;font-weight:500}
+.qtable tbody td{padding:11px 6px;text-align:center;font-weight:500}
+.qtable tbody td:first-child{text-align:left;padding-left:0;color:var(--dim);font-weight:300}
+.dtable tfoot,.qtable tfoot,.ltable tfoot{border-top:1px solid rgba(255,255,255,.1)}
+.dtable tfoot td,.ltable tfoot td{padding:12px 0;font-weight:600;font-size:15px}
+.dtable tfoot td:not(:first-child),.ltable tfoot td:not(:first-child){text-align:right}
+.qtable tfoot td{padding:12px 6px;font-weight:700;text-align:center;font-size:15px}
+.qtable tfoot td:first-child{text-align:left;padding-left:0}
+.c1{color:var(--norte)} .c2{color:var(--sur)} .ct{color:var(--total);font-weight:600}
+.cdim{color:var(--dim);font-style:italic;font-weight:300}
+.qh-1{background:rgba(79,163,212,.18);color:var(--norte);padding:4px 12px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:inline-block}
+.qh-2{background:rgba(212,148,79,.18);color:var(--sur);padding:4px 12px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:inline-block}
+
+/* ── PROGRESS ── */
+.prog-row{margin-bottom:15px}
+.prog-hdr{display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px}
+.prog-lbl{color:var(--dim)} .prog-num{font-weight:500}
+.prog-track{height:4px;background:var(--surface3)}
+.prog-fill{height:100%;transform-origin:left;animation:fillBar 1s .3s cubic-bezier(.16,1,.3,1) both}
+@keyframes fillBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* ── ING ROWS ── */
+.ing-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);padding:14px 16px;margin-bottom:2px;transition:background .2s}
+.ing-row:hover{background:var(--surface3)}
+.ing-lbl{font-size:13px;color:var(--dim)}
+.ing-amt{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:400;text-align:right}
+.divider{height:1px;background:var(--border);margin:18px 0}
+
+/* ══════════════════════════════════
+   CAPTURA FORM
+══════════════════════════════════ */
+.form-wrap{max-width:860px;margin:0 auto;padding:36px 32px 60px;position:relative;z-index:1}
+.form-header{margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+
+/* STEPS */
+.steps{display:flex;gap:2px;margin-bottom:32px}
+.step{flex:1;padding:14px;background:var(--surface);cursor:pointer;border-top:2px solid transparent;transition:all .2s;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:8px}
+.step:hover{background:var(--surface2);color:var(--text)}
+.step.active{border-top-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.step.done{border-top-color:var(--ok);color:var(--ok);background:rgba(126,200,160,.07)}
+.step-num{width:22px;height:22px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+
+/* SECTIONS */
+.fsec{display:none;animation:fadeIn .35s ease both}
+.fsec.active{display:block}
+.fsec-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:400;margin-bottom:4px}
+.fsec-sub{font-size:14px;color:var(--dim);margin-bottom:24px;letter-spacing:.03em}
+
+/* FIELD GROUPS */
+.fgroup{background:var(--surface);padding:24px;margin-bottom:2px}
+.fgroup-title{font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:18px;display:flex;align-items:center;gap:9px}
+.fgroup-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.g2f{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+.field{display:flex;flex-direction:column;gap:7px}
+.field label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.field input,.field select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:400;outline:none;transition:border-color .2s,background .2s;width:100%;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--accent);background:var(--surface3)}
+.field input::placeholder{color:var(--dim);font-size:14px}
+.pfx-wrap{position:relative}
+.pfx-wrap .pfx{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:15px;pointer-events:none}
+.pfx-wrap input{padding-left:28px}
+
+/* total preview strip */
+.total-strip{margin-top:14px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;border-left:2px solid}
+.total-strip span:first-child{font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.total-strip span:last-child{font-family:'Cormorant Garamond',serif;font-size:26px}
+
+/* NAV */
+.fnav{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.btn{padding:13px 28px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;transition:all .2s}
+.btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.btn-primary{background:var(--accent);color:#0c0e13;font-weight:600}
+.btn-primary:hover{background:var(--text)}
+.btn-success{background:var(--ok);color:#0c0e13;font-weight:600}
+.btn-success:hover{filter:brightness(1.1)}
+.btn-danger{background:rgba(212,106,106,.15);color:var(--err);border:1px solid rgba(212,106,106,.25)}
+.btn-danger:hover{background:rgba(212,106,106,.25)}
+
+/* RECORDS LIST */
+.rec-list{display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto}
+.rec-item{background:var(--surface2);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;transition:background .15s}
+.rec-item:hover{background:var(--surface3)}
+.rec-left{display:flex;flex-direction:column;gap:3px}
+.rec-date{font-size:12px;color:var(--dim);letter-spacing:.06em}
+.rec-desc{color:var(--text)}
+.rec-amt{font-family:'Cormorant Garamond',serif;font-size:22px}
+.rec-del{background:none;border:none;color:var(--dim);cursor:pointer;font-size:17px;padding:4px 8px;transition:color .2s}
+.rec-del:hover{color:var(--err)}
+.empty{text-align:center;padding:36px 20px;color:var(--dim);font-size:15px}
+
+/* PREVIEW */
+.prev-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:2px}
+.prev-kpi{background:var(--surface);padding:20px;text-align:center}
+.prev-kpi-val{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;line-height:1}
+.prev-kpi-lbl{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-top:6px}
+.prev-card{background:var(--surface);padding:24px;margin-bottom:2px}
+.prev-card h3{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;margin-bottom:14px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;z-index:200;background:var(--ok);color:#0c0e13;padding:13px 20px;font-size:14px;font-weight:600;letter-spacing:.06em;transform:translateY(70px);opacity:0;transition:all .4s cubic-bezier(.16,1,.3,1)}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* HISTORY TAB */
+.hist-item{background:var(--surface);padding:20px 24px;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;transition:background .2s;cursor:default}
+.hist-item:hover{background:var(--surface2)}
+.hist-left{display:flex;flex-direction:column;gap:4px}
+.hist-date{font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.hist-label{font-size:13px;color:var(--text)}
+.hist-right{display:flex;gap:20px;align-items:center}
+.hist-val{text-align:right}
+.hist-val span{display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+.hist-val strong{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400}
+
+@media(max-width:900px){.kpi-row,.prev-kpis{grid-template-columns:repeat(2,1fr)}.g2,.g2e{grid-template-columns:1fr}.g2f,.g3f{grid-template-columns:1fr}}
+@media(max-width:600px){.g3{grid-template-columns:1fr}.selector{flex-wrap:wrap}.kpi-row{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- APP NAV -->
+<nav class="app-nav">
+  <button class="app-tab active" onclick="showView('dashboard')">
+    <span class="tab-dot"></span>Dashboard
+  </button>
+  <button class="app-tab" onclick="showView('sct')">
+    <span class="tab-dot"></span>Ingreso Diario SCT
+  </button>
+  <button class="app-tab" onclick="showView('captura')">
+    <span class="tab-dot"></span>Captura Quincenal
+  </button>
+  <button class="app-tab" onclick="showView('historial')">
+    <span class="tab-dot"></span>Historial
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════
+     VIEW: DASHBOARD
+══════════════════════════════════════ -->
+<div class="view active" id="view-dashboard">
+<div class="wrap">
+
+  <div class="dash-header">
+    <div>
+      <div class="eyebrow">Reporte de gestión inmobiliaria</div>
+      <h1>Santa <em>Catalina</em></h1>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+      <div class="badge" id="dash-periodo">Ene – Jun 2026</div>
+      <div style="font-size:13px;color:var(--dim)" id="dash-update">Actualizado: lunes, 22 de junio de 2026</div>
+      <button onclick="exportarParaCompartir()" style="background: var(--total); color: rgb(12, 14, 19); border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; padding: 10px 20px; font-family: &quot;DM Sans&quot;, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; transition: filter 0.2s; filter: brightness(1.1);" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">
+        ⬇ Exportar para compartir
+      </button>
+    </div>
+  </div>
+
+  <!-- Selector -->
+  <div class="selector">
+    <button class="btn-sel norte" onclick="setFrac('norte')"><span class="btn-dot"></span>S.C. Norte</button>
+    <button class="btn-sel sur" onclick="setFrac('sur')">  <span class="btn-dot"></span>S.C. Sur</button>
+    <button class="btn-sel total active" onclick="setFrac('total')"><span class="btn-dot"></span>S.C. Total</button>
+  </div>
+
+  <!-- ── PANEL NORTE ── -->
+  <div class="panel" id="p-norte">
+    <div id="n-mes-selector" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+      <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-right:4px">Ver mes:</span>
+    <button data-idx="0" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Enero</button><button data-idx="1" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Febrero</button><button data-idx="2" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Marzo</button><button data-idx="3" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Abril</button><button data-idx="4" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--norte); color: rgb(12, 14, 19);">Junio</button></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">Ingresos Acumulados</div><div class="kpi-val" style="color:var(--norte)" id="kn-ing">$7,306,861</div><div class="kpi-sub" id="kn-ing-sub">Ene – Jun 2026</div><span class="kpi-tag" id="kn-pct" style="background:var(--norte-dim);color:var(--norte)">43.0% del total</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">Lotes Vendidos / Total</div><div class="kpi-val" id="kn-lotes" style="color:var(--text)">388 / 461</div><div class="kpi-sub" id="kn-lotes-sub">84.2% vendido</div><span class="kpi-tag" style="background:var(--norte-dim);color:var(--norte)" id="kn-proceso">73 en revisión</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">1ra Quincena</div><div class="kpi-val" style="color:var(--text);font-size:26px" id="kn-q1">$827,405</div><div class="kpi-sub" id="kn-q1-sub">1er corte · Junio</div><span class="kpi-tag" style="background:var(--norte-dim);color:var(--norte)">Norte · Abril</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">2da Quincena</div><div class="kpi-val" style="color:var(--text);font-size:26px" id="kn-q2">—</div><div class="kpi-sub" id="kn-q2-sub">2do corte · Junio</div><span class="kpi-tag" style="background:var(--norte-dim);color:var(--norte)" id="kn-q2-tag">pendiente</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">Total Mes</div><div class="kpi-val" style="color:var(--norte);font-size:26px" id="kn-mes">$827,405</div><div class="kpi-sub" id="kn-mes-sub">1er + 2do corte · Junio</div><span class="kpi-tag" style="background:var(--norte-dim);color:var(--norte)" id="kn-mes-tag">Solo 1er corte</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--norte)"></div><div class="kpi-lbl">Ingresos Mes Anterior</div><div class="kpi-val" style="color:var(--dim);font-size:26px" id="kn-prev">$1,654,015</div><div class="kpi-sub" id="kn-prev-sub">1er + 2do corte · Abril</div><span class="kpi-tag" style="background:var(--norte-dim);color:var(--norte)">Norte · Marzo</span></div>
+    </div>
+
+    <!-- Estimado del mes Norte -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px" id="n-est-strip">
+      <div class="kpi" style="background:var(--norte-dim);border-left:3px solid var(--norte)">
+        <div class="kpi-lbl">Estimado Mensual SCN</div>
+        <div class="kpi-val" style="color:var(--norte)" id="dash-est-n">$1,713,802</div>
+        <div class="kpi-sub">proyección del mes · descontando liquidados</div>
+      </div>
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-lbl">Avance vs Estimado</div>
+        <div class="kpi-val" style="color:var(--text);font-size:26px" id="dash-est-n-pct">48.3%</div>
+        <div class="kpi-sub" id="dash-est-n-sub">$827,405 ingresado de $1,713,802</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Ingresos Mensuales</div><div class="card-sub">1er y 2do corte · Norte</div><canvas id="n-bar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas></div>
+      <div class="card">
+        <div class="card-title">Comparativa Quincenal</div><div class="card-sub">1er corte vs 2do corte · Norte</div>
+        <div style="display:flex;gap:7px;margin-bottom:16px"><span class="qh-1">1er Corte</span><span class="qh-2">2do Corte</span></div>
+        <table class="qtable" id="n-qtable"><thead><tr><th>Mes</th><th>1er Corte</th><th>2do Corte</th><th>Dif.</th><th>Total</th></tr></thead><tbody><tr><td>Enero</td><td class="c1">$689,574</td><td class="c2">$806,541</td><td><span style="color:var(--total)">+$116,967</span></td><td class="ct">$1,496,115</td></tr><tr><td>Febrero</td><td class="c1">$841,526</td><td class="c2">$830,908</td><td><span style="color:var(--sur)">$-10,617</span></td><td class="ct">$1,672,434</td></tr><tr><td>Marzo</td><td class="c1">$825,741</td><td class="c2">$831,151</td><td><span style="color:var(--total)">+$5,410</span></td><td class="ct">$1,656,892</td></tr><tr><td>Abril</td><td class="c1">$912,271</td><td class="c2">$741,744</td><td><span style="color:var(--sur)">$-170,527</span></td><td class="ct">$1,654,015</td></tr><tr><td>Junio</td><td class="c1">$827,405</td><td class="c2">$0</td><td><span style="color:var(--sur)">$-827,405</span></td><td class="ct">$827,405</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td class="c1">$4,096,517</td><td class="c2">$3,210,344</td><td><span style="color:var(--sur)">$-886,172</span></td><td class="ct">$7,306,861</td></tr></tfoot></table>
+        <div class="divider"></div>
+        <canvas id="n-qbar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+      </div>
+    </div>
+    <div class="g2e">
+      <div class="card"><div class="card-title">Tabla Mensual</div><div class="card-sub">Ingresos Norte por mes</div><table class="dtable" id="n-mtable"><thead><tr><th>Mes</th><th>1er Corte</th><th>2do Corte</th><th>Total</th></tr></thead><tbody><tr><td>Enero</td><td style="color:var(--norte)">$689,574</td><td style="color:var(--norte)">$806,541</td><td>$1,496,115</td></tr><tr><td>Febrero</td><td style="color:var(--norte)">$841,526</td><td style="color:var(--norte)">$830,908</td><td>$1,672,434</td></tr><tr><td>Marzo</td><td style="color:var(--norte)">$825,741</td><td style="color:var(--norte)">$831,151</td><td>$1,656,892</td></tr><tr><td>Abril</td><td style="color:var(--norte)">$912,271</td><td style="color:var(--norte)">$741,744</td><td>$1,654,015</td></tr><tr><td>Junio</td><td style="color:var(--norte)">$827,405</td><td style="color:var(--norte)"><span class="cdim">—</span></td><td>$827,405</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td style="color:var(--norte)">$4,096,517</td><td style="color:var(--norte)">$3,210,344</td><td style="color:var(--norte)">$7,306,861</td></tr></tfoot></table><div class="divider"></div><canvas id="n-line" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas></div>
+      <div class="card">
+        <div class="card-title">Progreso de Ventas</div><div class="card-sub">Inventario Norte</div>
+        <div id="n-progs">
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">Vendido</span><span class="prog-num" style="color:var(--norte)">388 · 84.2%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:84.1648590021692%;background:var(--norte)"></div></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">En proceso</span><span class="prog-num" style="color:var(--dim)">73 · 15.8%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:15.835140997830802%;background:var(--dim)"></div></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">Disponible</span><span class="prog-num" style="color:var(--surface3)">0 · 0.0%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:0.5%;background:var(--surface3)"></div></div>
+    </div></div>
+        <div class="divider"></div>
+        <div class="slabel">Tabla de lotes vendidos</div>
+        <table class="ltable" id="n-ltable"><thead><tr><th>Mes</th><th>Total</th><th>Anticipo</th><th>Liquid.</th><th>Revisión</th><th>Disp.</th></tr></thead><tbody><tr><td>Enero</td><td style="color:var(--norte)">461</td><td>387</td><td>2</td><td style="color:var(--dim)">72</td><td style="color:var(--dim)">0</td></tr><tr><td>Febrero</td><td style="color:var(--norte)">461</td><td>387</td><td>2</td><td style="color:var(--dim)">72</td><td style="color:var(--dim)">0</td></tr><tr><td>Marzo</td><td style="color:var(--norte)">461</td><td>0</td><td>0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td></tr><tr><td>Abril</td><td style="color:var(--norte)">461</td><td>0</td><td>0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td></tr><tr><td>Junio</td><td style="color:var(--norte)">461</td><td>0</td><td>0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Cobranza + Lotes Entregados Norte -->
+    <div class="g2e">
+      <div class="card">
+        <div class="card-title">Ingreso y Cobranza</div><div class="card-sub">Estado de cartera · Norte</div>
+        <canvas id="n-cob-bar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+        <div class="divider"></div>
+        <table class="ltable" id="n-cob-table">
+          <thead><tr><th>Concepto</th><th>Enero</th><th>Febrero</th><th>15 Mar</th><th>Abril</th><th>Junio</th></tr></thead>
+          <tbody><tr><td>Al corriente</td><td style="color:var(--total)">272</td><td style="color:var(--total)">281</td><td style="color:var(--total)">286</td><td style="color:var(--total)">271</td><td style="color:var(--total)">146</td></tr><tr><td>Con PDP (mes en curso)</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td></tr><tr><td>Atraso 1 mes</td><td style="color:#f0e040">95</td><td style="color:#f0e040">76</td><td style="color:#f0e040">70</td><td style="color:#f0e040">84</td><td style="color:#f0e040">44</td></tr><tr><td>Atraso 2 meses</td><td style="color:var(--sur)">14</td><td style="color:var(--sur)">21</td><td style="color:var(--sur)">20</td><td style="color:var(--sur)">19</td><td style="color:var(--sur)">7</td></tr><tr><td>Atraso 3+ meses</td><td style="color:#d45050">6</td><td style="color:#d45050">9</td><td style="color:#d45050">11</td><td style="color:#d45050">13</td><td style="color:#d45050">8</td></tr><tr><td>Liquidados</td><td style="color:var(--norte)">2</td><td style="color:var(--norte)">2</td><td style="color:var(--norte)">2</td><td style="color:var(--norte)">2</td><td style="color:var(--norte)">2</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Comparativa Lotes Vendidos</div><div class="card-sub">Últimos 3 meses · Norte</div>
+        <canvas id="n-lv-bar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+        <div class="divider"></div>
+        <table class="ltable" id="n-lv-table">
+          <thead><tr><th>Concepto</th><th>Enero</th><th>Febrero</th><th>15 Mar</th><th>Abril</th><th>Junio</th></tr></thead>
+          <tbody><tr><td>Con anticipo</td><td style="color:var(--norte)">387</td><td style="color:var(--norte)">387</td><td style="color:var(--norte)">0</td><td style="color:var(--norte)">0</td><td style="color:var(--norte)">0</td></tr><tr><td>Liquidados</td><td style="color:var(--total)">2</td><td style="color:var(--total)">2</td><td style="color:var(--total)">0</td><td style="color:var(--total)">0</td><td style="color:var(--total)">0</td></tr><tr><td>En revisión – prospectos</td><td style="color:var(--accent)">72</td><td style="color:var(--accent)">72</td><td style="color:var(--accent)">0</td><td style="color:var(--accent)">0</td><td style="color:var(--accent)">0</td></tr><tr><td>Disponibles</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL SUR ── -->
+  <div class="panel" id="p-sur">
+    <div id="s-mes-selector" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+      <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-right:4px">Ver mes:</span>
+    <button data-idx="0" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Enero</button><button data-idx="1" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Febrero</button><button data-idx="2" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Marzo</button><button data-idx="3" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Abril</button><button data-idx="4" style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--sur); color: rgb(12, 14, 19);">Junio</button></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">Ingresos Acumulados</div><div class="kpi-val" style="color:var(--sur)" id="ks-ing">$9,674,570</div><div class="kpi-sub" id="ks-ing-sub">Ene – Jun 2026</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)" id="ks-pct">57.0% del total</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">Lotes Vendidos / Total</div><div class="kpi-val" id="ks-lotes" style="color:var(--text)">878 / 909</div><div class="kpi-sub" id="ks-lotes-sub">96.6% vendido</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)" id="ks-proceso">1 en revisión</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">1ra Quincena</div><div class="kpi-val" style="color:var(--text);font-size:26px" id="ks-q1">$759,458</div><div class="kpi-sub" id="ks-q1-sub">1er corte · Junio</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)">Sur · Abril</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">2da Quincena</div><div class="kpi-val" style="color:var(--text);font-size:26px" id="ks-q2">—</div><div class="kpi-sub" id="ks-q2-sub">2do corte · Junio</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)" id="ks-q2-tag">pendiente</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">Total Mes</div><div class="kpi-val" style="color:var(--sur);font-size:26px" id="ks-marzo">$759,458</div><div class="kpi-sub" id="ks-marzo-sub">1er + 2do corte · Junio</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)" id="ks-marzo-tag">Solo 1er corte</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--sur)"></div><div class="kpi-lbl">Ingresos Mes Anterior</div><div class="kpi-val" style="color:var(--dim);font-size:26px" id="ks-prev">$1,614,636</div><div class="kpi-sub" id="ks-prev-sub">1er + 2do corte · Abril</div><span class="kpi-tag" style="background:var(--sur-dim);color:var(--sur)">Sur · Marzo</span></div>
+    </div>
+
+    <!-- Estimado del mes Sur -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px">
+      <div class="kpi" style="background:var(--sur-dim);border-left:3px solid var(--sur)">
+        <div class="kpi-lbl">Estimado Mensual SCS</div>
+        <div class="kpi-val" style="color:var(--sur)" id="dash-est-s">$1,246,684</div>
+        <div class="kpi-sub">proyección del mes · descontando liquidados</div>
+      </div>
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-lbl">Avance vs Estimado</div>
+        <div class="kpi-val" style="color:var(--text);font-size:26px" id="dash-est-s-pct">60.9%</div>
+        <div class="kpi-sub" id="dash-est-s-sub">$759,458 ingresado de $1,246,684</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Ingresos Mensuales</div><div class="card-sub">1er y 2do corte · Sur</div><canvas id="s-bar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas></div>
+      <div class="card">
+        <div class="card-title">Comparativa Quincenal</div><div class="card-sub">1er corte vs 2do corte · Sur</div>
+        <div style="display:flex;gap:7px;margin-bottom:16px"><span class="qh-1">1er Corte</span><span class="qh-2">2do Corte</span></div>
+        <table class="qtable" id="s-qtable"><thead><tr><th>Mes</th><th>1er Corte</th><th>2do Corte</th><th>Dif.</th><th>Total</th></tr></thead><tbody><tr><td>Enero</td><td class="c1">$1,206,364</td><td class="c2">$1,318,757</td><td><span style="color:var(--total)">+$112,393</span></td><td class="ct">$2,525,120</td></tr><tr><td>Febrero</td><td class="c1">$967,069</td><td class="c2">$1,282,141</td><td><span style="color:var(--total)">+$315,072</span></td><td class="ct">$2,249,210</td></tr><tr><td>Marzo</td><td class="c1">$1,234,367</td><td class="c2">$1,291,779</td><td><span style="color:var(--total)">+$57,412</span></td><td class="ct">$2,526,146</td></tr><tr><td>Abril</td><td class="c1">$798,315</td><td class="c2">$816,321</td><td><span style="color:var(--total)">+$18,006</span></td><td class="ct">$1,614,636</td></tr><tr><td>Junio</td><td class="c1">$759,458</td><td class="c2">$0</td><td><span style="color:var(--sur)">$-759,458</span></td><td class="ct">$759,458</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td class="c1">$4,965,572</td><td class="c2">$4,708,998</td><td><span style="color:var(--sur)">$-256,574</span></td><td class="ct">$9,674,570</td></tr></tfoot></table>
+        <div class="divider"></div>
+        <canvas id="s-qbar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+      </div>
+    </div>
+    <div class="g2e">
+      <div class="card"><div class="card-title">Tabla Mensual</div><div class="card-sub">Ingresos Sur por mes</div><table class="dtable" id="s-mtable"><thead><tr><th>Mes</th><th>1er Corte</th><th>2do Corte</th><th>Total</th></tr></thead><tbody><tr><td>Enero</td><td style="color:var(--sur)">$1,206,364</td><td style="color:var(--sur)">$1,318,757</td><td>$2,525,120</td></tr><tr><td>Febrero</td><td style="color:var(--sur)">$967,069</td><td style="color:var(--sur)">$1,282,141</td><td>$2,249,210</td></tr><tr><td>Marzo</td><td style="color:var(--sur)">$1,234,367</td><td style="color:var(--sur)">$1,291,779</td><td>$2,526,146</td></tr><tr><td>Abril</td><td style="color:var(--sur)">$798,315</td><td style="color:var(--sur)">$816,321</td><td>$1,614,636</td></tr><tr><td>Junio</td><td style="color:var(--sur)">$759,458</td><td style="color:var(--sur)"><span class="cdim">—</span></td><td>$759,458</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td style="color:var(--sur)">$4,965,572</td><td style="color:var(--sur)">$4,708,998</td><td style="color:var(--sur)">$9,674,570</td></tr></tfoot></table><div class="divider"></div><canvas id="s-line" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas></div>
+      <div class="card">
+        <div class="card-title">Progreso de Ventas</div><div class="card-sub">Inventario Sur</div>
+        <div id="s-progs">
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">Vendido</span><span class="prog-num" style="color:var(--sur)">878 · 96.6%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:96.58965896589659%;background:var(--sur)"></div></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">En proceso</span><span class="prog-num" style="color:var(--dim)">1 · 0.1%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:0.11001100110011%;background:var(--dim)"></div></div>
+    </div>
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">Disponible</span><span class="prog-num" style="color:var(--surface3)">0 · 0.0%</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:0.5%;background:var(--surface3)"></div></div>
+    </div></div>
+        <div class="divider"></div>
+        <div class="slabel">Tabla de lotes vendidos</div>
+        <table class="ltable" id="s-ltable"><thead><tr><th>Mes</th><th>Total</th><th>Anticipo</th><th>Liquid.</th><th>Revisión</th><th>Disp.</th></tr></thead><tbody><tr><td>Enero</td><td style="color:var(--sur)">1370</td><td>659</td><td>219</td><td style="color:var(--dim)">1</td><td style="color:var(--dim)">0</td></tr><tr><td>Febrero</td><td style="color:var(--sur)">1370</td><td>573</td><td>305</td><td style="color:var(--dim)">1</td><td style="color:var(--dim)">0</td></tr><tr><td>Marzo</td><td style="color:var(--sur)">1370</td><td>866</td><td>402</td><td style="color:var(--dim)">73</td><td style="color:var(--dim)">0</td></tr><tr><td>Abril</td><td style="color:var(--sur)">1370</td><td>782</td><td>485</td><td style="color:var(--dim)">73</td><td style="color:var(--dim)">0</td></tr><tr><td>Junio</td><td style="color:var(--sur)">1370</td><td>692</td><td>574</td><td style="color:var(--dim)">73</td><td style="color:var(--dim)">0</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Cobranza + Lotes Entregados Sur -->
+    <div class="g2e">
+      <div class="card">
+        <div class="card-title">Ingreso y Cobranza</div><div class="card-sub">Estado de cartera · Sur</div>
+        <canvas id="s-cob-bar" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+        <div class="divider"></div>
+        <table class="ltable" id="s-cob-table">
+          <thead><tr><th>Concepto</th><th>Enero</th><th>Febrero</th><th>15 Mar</th><th>Abril</th><th>Junio</th></tr></thead>
+          <tbody><tr><td>Al corriente</td><td style="color:var(--total)">347</td><td style="color:var(--total)">278</td><td style="color:var(--total)">274</td><td style="color:var(--total)">189</td><td style="color:var(--total)">67</td></tr><tr><td>Con PDP (mes en curso)</td><td style="color:var(--dim)">0</td><td style="color:var(--dim)">0</td><td style="color:var(--accent)">114</td><td style="color:var(--dim)">0</td><td style="color:var(--accent)">142</td></tr><tr><td>Atraso 1 mes</td><td style="color:#f0e040">219</td><td style="color:#f0e040">172</td><td style="color:#f0e040">41</td><td style="color:#f0e040">127</td><td style="color:#f0e040">37</td></tr><tr><td>Atraso 2 meses</td><td style="color:var(--sur)">55</td><td style="color:var(--sur)">84</td><td style="color:var(--sur)">41</td><td style="color:var(--sur)">29</td><td style="color:var(--sur)">21</td></tr><tr><td>Atraso 3+ meses</td><td style="color:#d45050">38</td><td style="color:#d45050">38</td><td style="color:#d45050">49</td><td style="color:#d45050">49</td><td style="color:#d45050">37</td></tr><tr><td>Liquidados</td><td style="color:var(--norte)">219</td><td style="color:var(--norte)">306</td><td style="color:var(--norte)">400</td><td style="color:var(--norte)">484</td><td style="color:var(--norte)">572</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Lotes Entregados · Modelo de Contrato</div><div class="card-sub">Últimos 3 meses · Sur</div>
+        <canvas id="s-le-donut" height="0" style="box-sizing: border-box; display: block; height: 0px; width: 0px;" width="0"></canvas>
+        <div class="divider"></div>
+        <table class="ltable" id="s-le-table">
+          <thead><tr><th>Modelo</th><th>Cantidad</th><th>%</th></tr></thead>
+          <tbody><tr><td>C-V sin addendum</td><td style="color:var(--norte)">13</td><td style="color:var(--norte)">1%</td></tr><tr><td>C-V con addendum</td><td style="color:var(--accent)">331</td><td style="color:var(--accent)">38%</td></tr><tr><td>C-P (promesa)</td><td style="color:var(--total)">534</td><td style="color:var(--total)">61%</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL TOTAL ── -->
+  <div class="panel active" id="p-total">
+    <div id="t-mes-selector" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+      <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-right:4px">Ver mes:</span>
+    <button style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Enero</button><button style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Febrero</button><button style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Marzo</button><button style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--surface2); color: var(--dim);">Abril</button><button style="padding: 5px 12px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: 0.2s; border-radius: 2px; background: var(--total); color: rgb(12, 14, 19);">Junio</button></div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Ingresos Totales</div><div class="kpi-val" style="color:var(--total)" id="kt-ing">$16,981,431</div><div class="kpi-sub">Norte + Sur</div><span class="kpi-tag" style="background:var(--total-dim);color:var(--total)">Acumulado</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Lotes Totales</div><div class="kpi-val" id="kt-lotes" style="color:var(--text)">1370</div><div class="kpi-sub" id="kt-lotes-sub">Norte + Sur</div><span class="kpi-tag" style="background:var(--total-dim);color:var(--total)" id="kt-pct">92.4% vendido</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Vendidos / En Proceso</div><div class="kpi-val" id="kt-vend" style="color:var(--text)">1266 / 74</div><div class="kpi-sub" id="kt-vend-sub">vendidos / en proceso</div><span class="kpi-tag" style="background:var(--total-dim);color:var(--total)" id="kt-proc">92.4% del inventario</span></div>
+      <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Ingresos Último Mes</div><div class="kpi-val" style="color:var(--text);font-size:26px" id="kt-mes">—</div><div class="kpi-sub" id="kt-mes-sub">sin mes anterior</div><span class="kpi-tag" style="background:var(--total-dim);color:var(--total)">Norte + Sur</span></div>
+    </div>
+
+    <!-- SCT acumulado Total -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:2px">
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-bar" style="background:var(--total)"></div>
+        <div class="kpi-lbl">SCT · 1ra Quincena</div>
+        <div class="kpi-val" style="color:var(--total);font-size:26px" id="kt-sct-q1">$1,586,863</div>
+        <div class="kpi-sub" id="kt-sct-q1-sub">1ra quincena SCN+SCS · Junio</div>
+      </div>
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-bar" style="background:var(--total)"></div>
+        <div class="kpi-lbl">SCT · 2da Quincena</div>
+        <div class="kpi-val" style="color:var(--total);font-size:26px" id="kt-sct-q2">—</div>
+        <div class="kpi-sub" id="kt-sct-q2-sub">2da quincena SCN+SCS · Junio</div>
+      </div>
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-bar" style="background:var(--total)"></div>
+        <div class="kpi-lbl">SCT · Total Mes</div>
+        <div class="kpi-val" style="color:var(--total);font-size:26px" id="kt-sct-tot">$1,586,863</div>
+        <div class="kpi-sub" id="kt-sct-mes-label">1ra+2da quincena SCN+SCS · Junio</div>
+      </div>
+      <div class="kpi" style="background:var(--surface2)">
+        <div class="kpi-bar" style="background:var(--total)"></div>
+        <div class="kpi-lbl">SCT · Registros del mes</div>
+        <div class="kpi-val" style="color:var(--text)" id="kt-sct-dias">1 reg.</div>
+        <div class="kpi-sub">días capturados</div>
+        <span class="kpi-tag" style="background:var(--total-dim);color:var(--total)" id="kt-sct-prom">SCT diario: $481,417</span>
+      </div>
+    </div>
+
+    <!-- Estimado del mes Total -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:2px">
+      <div class="kpi" style="background:var(--norte-dim);border-left:3px solid var(--norte)">
+        <div class="kpi-lbl">Estimado Mensual SCN</div>
+        <div class="kpi-val" style="color:var(--norte)" id="dash-est-nt">$1,713,802</div>
+        <div class="kpi-sub" id="dash-est-n-avt">48.3% avance</div>
+      </div>
+      <div class="kpi" style="background:var(--sur-dim);border-left:3px solid var(--sur)">
+        <div class="kpi-lbl">Estimado Mensual SCS</div>
+        <div class="kpi-val" style="color:var(--sur)" id="dash-est-st">$1,246,684</div>
+        <div class="kpi-sub" id="dash-est-s-avt">60.9% avance</div>
+      </div>
+      <div class="kpi" style="background:var(--total-dim);border-left:3px solid var(--total)">
+        <div class="kpi-lbl">Estimado Mensual SCT</div>
+        <div class="kpi-val" style="color:var(--total)" id="dash-est-tt">$2,960,486</div>
+        <div class="kpi-sub" id="dash-est-t-avt">53.6% avance</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-title">Ingresos Norte vs Sur</div><div class="card-sub">Barras apiladas por mes</div><canvas id="t-bar" height="589" style="box-sizing: border-box; display: block; height: 589px; width: 768px;" width="768"></canvas></div>
+      <div class="card">
+        <div class="card-title">Comparativa Quincenal Total</div><div class="card-sub">1er corte vs 2do corte · Norte + Sur</div>
+        <div style="display:flex;gap:7px;margin-bottom:16px"><span class="qh-1">1er Corte</span><span class="qh-2">2do Corte</span></div>
+        <table class="qtable" id="t-qtable"><thead><tr><th>Mes</th><th>1er Corte</th><th>2do Corte</th><th>Dif.</th><th>Total</th></tr></thead><tbody><tr><td>Enero</td><td class="c1">$1,895,938</td><td class="c2">$2,125,298</td><td><span style="color:var(--total)">+$229,361</span></td><td class="ct">$4,021,236</td></tr><tr><td>Febrero</td><td class="c1">$1,808,594</td><td class="c2">$2,113,049</td><td><span style="color:var(--total)">+$304,455</span></td><td class="ct">$3,921,644</td></tr><tr><td>Marzo</td><td class="c1">$2,060,108</td><td class="c2">$2,122,930</td><td><span style="color:var(--total)">+$62,821</span></td><td class="ct">$4,183,038</td></tr><tr><td>Abril</td><td class="c1">$1,710,586</td><td class="c2">$1,558,065</td><td><span style="color:var(--sur)">$-152,521</span></td><td class="ct">$3,268,651</td></tr><tr><td>Junio</td><td class="c1">$1,586,863</td><td class="c2">$0</td><td><span style="color:var(--sur)">$-1,586,863</span></td><td class="ct">$1,586,863</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td class="c1">$9,062,089</td><td class="c2">$7,919,342</td><td><span style="color:var(--sur)">$-1,142,747</span></td><td class="ct">$16,981,431</td></tr></tfoot></table>
+        <div class="divider"></div>
+        <canvas id="t-qbar" height="197" style="box-sizing: border-box; display: block; height: 197px; width: 493px;" width="493"></canvas>
+      </div>
+    </div>
+    <div class="g2e">
+      <div class="card"><div class="card-title">Tabla Mensual Comparativa</div><div class="card-sub">Norte vs Sur vs Total</div><table class="dtable" id="t-mtable"><thead><tr><th>Mes</th><th style="color:var(--norte)">Norte</th><th style="color:var(--sur)">Sur</th><th style="color:var(--total)">Total</th></tr></thead><tbody><tr><td>Enero</td><td style="color:var(--norte)">$1,496,115</td><td style="color:var(--sur)">$2,525,120</td><td style="color:var(--total)">$4,021,236</td></tr><tr><td>Febrero</td><td style="color:var(--norte)">$1,672,434</td><td style="color:var(--sur)">$2,249,210</td><td style="color:var(--total)">$3,921,644</td></tr><tr><td>Marzo</td><td style="color:var(--norte)">$1,656,892</td><td style="color:var(--sur)">$2,526,146</td><td style="color:var(--total)">$4,183,038</td></tr><tr><td>Abril</td><td style="color:var(--norte)">$1,654,015</td><td style="color:var(--sur)">$1,614,636</td><td style="color:var(--total)">$3,268,651</td></tr><tr><td>Junio</td><td style="color:var(--norte)">$827,405</td><td style="color:var(--sur)">$759,458</td><td style="color:var(--total)">$1,586,863</td></tr></tbody><tfoot><tr><td style="color:var(--accent)">Total</td><td style="color:var(--norte)">$7,306,861</td><td style="color:var(--sur)">$9,674,570</td><td style="color:var(--total)">$16,981,431</td></tr></tfoot></table><div class="divider"></div><canvas id="t-line" height="272" style="box-sizing: border-box; display: block; height: 272px; width: 631px;" width="631"></canvas></div>
+      <div class="card">
+        <div class="card-title">Tabla Mensual de Lotes</div><div class="card-sub">Inventario histórico completo</div>
+        <table class="ltable" id="t-ltable"><thead><tr><th>Mes</th><th>Total</th><th>Anticipo</th><th>Liquid.</th><th>Revisión</th><th>Disp.</th><th>No Disp.</th></tr></thead><tbody><tr>
+      <td>Enero</td>
+      <td style="color:var(--total)">1370</td>
+      <td>1046</td>
+      <td>221</td>
+      <td style="color:var(--dim)">73</td>
+      <td style="color:var(--dim)">0</td>
+      <td style="color:var(--dim)">30</td>
+    </tr><tr>
+      <td>Febrero</td>
+      <td style="color:var(--total)">1370</td>
+      <td>960</td>
+      <td>307</td>
+      <td style="color:var(--dim)">73</td>
+      <td style="color:var(--dim)">0</td>
+      <td style="color:var(--dim)">30</td>
+    </tr><tr>
+      <td>Marzo</td>
+      <td style="color:var(--total)">1370</td>
+      <td>866</td>
+      <td>402</td>
+      <td style="color:var(--dim)">73</td>
+      <td style="color:var(--dim)">0</td>
+      <td style="color:var(--dim)">39</td>
+    </tr><tr>
+      <td>Abril</td>
+      <td style="color:var(--total)">1370</td>
+      <td>782</td>
+      <td>485</td>
+      <td style="color:var(--dim)">73</td>
+      <td style="color:var(--dim)">0</td>
+      <td style="color:var(--dim)">30</td>
+    </tr><tr>
+      <td>Junio</td>
+      <td style="color:var(--total)">1370</td>
+      <td>692</td>
+      <td>574</td>
+      <td style="color:var(--dim)">73</td>
+      <td style="color:var(--dim)">0</td>
+      <td style="color:var(--dim)">30</td>
+    </tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Cobranza Total -->
+    <div class="g2e">
+      <div class="card">
+        <div class="card-title">Ingreso y Cobranza · Comparativa</div><div class="card-sub">Norte vs Sur · estado de cartera</div>
+        <canvas id="t-cob-bar" height="462" style="box-sizing: border-box; display: block; height: 462px; width: 631px;" width="631"></canvas>
+        <div class="divider"></div>
+        <table class="ltable" id="t-cob-table">
+          <thead><tr><th>Concepto</th><th style="color:var(--norte)">Norte</th><th style="color:var(--sur)">Sur</th></tr></thead>
+          <tbody><tr><td>Al corriente</td><td style="color:var(--norte)">146</td><td style="color:var(--sur)">67</td></tr><tr><td>Con PDP (mes en curso)</td><td style="color:var(--norte)">0</td><td style="color:var(--sur)">142</td></tr><tr><td>Atraso 1 mes</td><td style="color:var(--norte)">44</td><td style="color:var(--sur)">37</td></tr><tr><td>Atraso 2 meses</td><td style="color:var(--norte)">7</td><td style="color:var(--sur)">21</td></tr><tr><td>Atraso 3+ meses</td><td style="color:var(--norte)">8</td><td style="color:var(--sur)">37</td></tr><tr><td>Liquidados</td><td style="color:var(--norte)">2</td><td style="color:var(--sur)">572</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Lotes Entregados · Sur</div><div class="card-sub">Modelo de contrato · últimos 3 meses</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px" id="t-le-months">
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Enero</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">641</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div>
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Febrero</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">641</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div>
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">15 Mar</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">641</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div>
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Abril</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">641</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div>
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">Junio</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">641</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div></div>
+        <table class="ltable" id="t-le-table">
+          <thead><tr><th>Modelo de contrato</th><th>Ene</th><th>Feb</th><th>Mar</th></tr></thead>
+          <tbody><tr><td>C-V sin addendum</td><td style="color:var(--norte)">13</td><td style="color:var(--norte)">13</td><td style="color:var(--norte)">13</td><td style="color:var(--norte)">13</td><td style="color:var(--norte)">13</td></tr><tr><td>C-V con addendum</td><td style="color:var(--accent)">331</td><td style="color:var(--accent)">331</td><td style="color:var(--accent)">331</td><td style="color:var(--accent)">331</td><td style="color:var(--accent)">331</td></tr><tr><td>C-P (promesa)</td><td style="color:var(--total)">534</td><td style="color:var(--total)">534</td><td style="color:var(--total)">534</td><td style="color:var(--total)">534</td><td style="color:var(--total)">534</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /view dashboard -->
+
+
+<!-- ══════════════════════════════════════
+     VIEW: CAPTURA
+══════════════════════════════════════ -->
+<div class="view" id="view-captura">
+<div class="form-wrap">
+
+  <div class="form-header">
+    <div class="eyebrow">Captura de datos</div>
+    <h1 style="font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:300">Nuevo <em style="font-style:normal;color:var(--accent);font-weight:600">Registro</em></h1>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step active" id="fs1" onclick="goStep(1)"><div class="step-num" id="sn1">1</div>General</div>
+    <div class="step" id="fs2" onclick="goStep(2)"><div class="step-num" id="sn2">2</div>Norte</div>
+    <div class="step" id="fs3" onclick="goStep(3)"><div class="step-num" id="sn3">3</div>Sur</div>
+    <div class="step" id="fs4" onclick="goStep(4)"><div class="step-num" id="sn4">4</div>Lotes</div>
+    <div class="step" id="fs5" onclick="goStep(5)"><div class="step-num" id="sn5">5</div>Cobranza</div>
+    <div class="step" id="fs6" onclick="goStep(6)"><div class="step-num" id="sn6">6</div>Guardar</div>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="fsec active" id="fsec1">
+    <div class="fsec-title">Información General</div>
+    <div class="fsec-sub">Periodo y metas del corte a registrar</div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--accent)">Periodo</div>
+      <div class="g3f">
+        <div class="field"><label>Fecha</label><input type="date" id="f-fecha"></div>
+        <div class="field"><label>Mes</label>
+          <select id="f-mes">
+            <option value="">Seleccionar...</option>
+            <option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option>
+            <option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option>
+            <option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
+          </select>
+        </div>
+        <div class="field"><label>Corte</label>
+          <select id="f-corte">
+            <option value="">Seleccionar...</option>
+            <option value="1">1er Corte (01–15)</option>
+            <option value="2">2do Corte (16–31)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--accent)">Metas del mes</div>
+      <div class="g2f">
+        <div class="field"><label>Meta Norte (ventas)</label><input type="number" id="f-meta-n" placeholder="33" min="0"></div>
+        <div class="field"><label>Meta Sur (ventas)</label><input type="number" id="f-meta-s" placeholder="33" min="0"></div>
+      </div>
+    </div>
+    <div class="fnav"><div></div><button class="btn btn-primary" onclick="goStep(2)">Siguiente →</button></div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="fsec" id="fsec2">
+    <div class="fsec-title">Santa Catalina <span style="color:var(--norte)">Norte</span></div>
+    <div class="fsec-sub">Ingresos y progreso de ventas</div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--norte)">Ingresos del corte</div>
+      <div class="g2f">
+        <div class="field"><label>1er Corte (01–15)</label><div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="n-c1" placeholder="0.00" min="0" step="0.01" oninput="updNTotal()"></div></div>
+        <div class="field"><label>2do Corte (16–31)</label><div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="n-c2" placeholder="0.00" min="0" step="0.01" oninput="updNTotal()"></div></div>
+      </div>
+      <div class="total-strip" style="border-color:var(--norte);background:var(--norte-dim)">
+        <span style="color:var(--norte)">Total Norte</span>
+        <span style="color:var(--norte)" id="n-tot-prev">$0</span>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--norte)">Progreso de ventas</div>
+      <div class="g3f">
+        <div class="field"><label>Vendidos</label><input type="number" id="n-vend" placeholder="389" min="0"></div>
+        <div class="field"><label>En proceso</label><input type="number" id="n-proc" placeholder="72" min="0"></div>
+        <div class="field"><label>Disponibles</label><input type="number" id="n-disp" placeholder="0" min="0"></div>
+      </div>
+      <div class="g2f" style="margin-top:12px">
+        <div class="field"><label>Venta mes acum.</label><input type="number" id="n-vmes" placeholder="21" min="0"></div>
+        <div class="field"><label>Total inventario</label><input type="number" id="n-tinv" placeholder="461" min="0"></div>
+      </div>
+    </div>
+    <div class="fnav"><button class="btn btn-ghost" onclick="goStep(1)">← Atrás</button><button class="btn btn-primary" onclick="goStep(3)">Siguiente →</button></div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="fsec" id="fsec3">
+    <div class="fsec-title">Santa Catalina <span style="color:var(--sur)">Sur</span></div>
+    <div class="fsec-sub">Ingresos y progreso de ventas</div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--sur)">Ingresos del corte</div>
+      <div class="g2f">
+        <div class="field"><label>1er Corte (01–15)</label><div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="s-c1" placeholder="0.00" min="0" step="0.01" oninput="updSTotal()"></div></div>
+        <div class="field"><label>2do Corte (16–31)</label><div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="s-c2" placeholder="0.00" min="0" step="0.01" oninput="updSTotal()"></div></div>
+      </div>
+      <div class="total-strip" style="border-color:var(--sur);background:var(--sur-dim)">
+        <span style="color:var(--sur)">Total Sur</span>
+        <span style="color:var(--sur)" id="s-tot-prev">$0</span>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--sur)">Progreso de ventas</div>
+      <div class="g3f">
+        <div class="field"><label>Vendidos</label><input type="number" id="s-vend" placeholder="878" min="0"></div>
+        <div class="field"><label>En proceso</label><input type="number" id="s-proc" placeholder="1" min="0"></div>
+        <div class="field"><label>Disponibles</label><input type="number" id="s-disp" placeholder="0" min="0"></div>
+      </div>
+      <div class="g2f" style="margin-top:12px">
+        <div class="field"><label>Venta mes acum.</label><input type="number" id="s-vmes" placeholder="0" min="0"></div>
+        <div class="field"><label>Total inventario</label><input type="number" id="s-tinv" placeholder="879" min="0"></div>
+      </div>
+    </div>
+    <div class="fnav"><button class="btn btn-ghost" onclick="goStep(2)">← Atrás</button><button class="btn btn-primary" onclick="goStep(4)">Siguiente →</button></div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="fsec" id="fsec4">
+    <div class="fsec-title">Inventario de Lotes</div>
+    <div class="fsec-sub">Estado mensual del inventario combinado</div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--accent)">Estado del mes</div>
+      <div class="g3f">
+        <div class="field"><label>Total lotes</label><input type="number" id="l-tot" placeholder="863" min="0"></div>
+        <div class="field"><label>Con anticipo</label><input type="number" id="l-ant" placeholder="830" min="0"></div>
+        <div class="field"><label>Liquidados</label><input type="number" id="l-liq" placeholder="33" min="0"></div>
+      </div>
+      <div class="g3f" style="margin-top:12px">
+        <div class="field"><label>En revisión</label><input type="number" id="l-rev" placeholder="6" min="0"></div>
+        <div class="field"><label>Disponibles</label><input type="number" id="l-dsp" placeholder="6" min="0"></div>
+        <div class="field"><label>No disponibles</label><input type="number" id="l-ndp" placeholder="39" min="0"></div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--accent)">Notas</div>
+      <div class="field"><label>Observaciones (opcional)</label><input type="text" id="f-notas" placeholder="Cierre especial, campaña, etc."></div>
+    </div>
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--total)">Estimado de Ingresos del Mes</div>
+      <p style="font-size:13px;color:var(--dim);margin-bottom:16px">Ingresa el estimado mensual descontando los lotes liquidados.</p>
+      <div class="g3f">
+        <div class="field">
+          <label style="color:var(--norte)">Estimado SCN (Norte)</label>
+          <div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="f-est-n" placeholder="0.00" min="0" step="0.01"></div>
+        </div>
+        <div class="field">
+          <label style="color:var(--sur)">Estimado SCS (Sur)</label>
+          <div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="f-est-s" placeholder="0.00" min="0" step="0.01"></div>
+        </div>
+        <div class="field">
+          <label style="color:var(--total)">Estimado SCT (Total)</label>
+          <div class="pfx-wrap"><span class="pfx">$</span><input type="number" id="f-est-t" placeholder="0.00" min="0" step="0.01"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fnav"><button class="btn btn-ghost" onclick="goStep(3)">← Atrás</button><button class="btn btn-primary" onclick="goStep(5)">Siguiente →</button></div>
+  </div>
+
+  <!-- PASO 5: COBRANZA + LOTES ENTREGADOS -->
+  <div class="fsec" id="fsec5">
+    <div class="fsec-title">Cobranza y Lotes Entregados</div>
+    <div class="fsec-sub">Estado de cartera y modelos de contrato por fraccionamiento</div>
+
+    <!-- SUR Cobranza -->
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--sur)">Ingreso y Cobranza · Santa Catalina Sur</div>
+      <div class="g3f">
+        <div class="field"><label>Al corriente</label><input type="number" id="cs-corriente" placeholder="136" min="0"></div>
+        <div class="field"><label>Con PDP (mes en curso)</label><input type="number" id="cs-pdp" placeholder="211" min="0"></div>
+        <div class="field"><label>Atraso 1 mes</label><input type="number" id="cs-a1" placeholder="102" min="0"></div>
+      </div>
+      <div class="g3f" style="margin-top:12px">
+        <div class="field"><label>Atraso 2 meses</label><input type="number" id="cs-a2" placeholder="42" min="0"></div>
+        <div class="field"><label>Atraso 3+ meses</label><input type="number" id="cs-a3" placeholder="28" min="0"></div>
+        <div class="field"><label>Lotes liquidados</label><input type="number" id="cs-liq" placeholder="359" min="0"></div>
+      </div>
+    </div>
+
+    <!-- NORTE Cobranza -->
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--norte)">Ingreso y Cobranza · Santa Catalina Norte</div>
+      <div class="g3f">
+        <div class="field"><label>Al corriente</label><input type="number" id="cn-corriente" placeholder="147" min="0"></div>
+        <div class="field"><label>Atraso 1 mes</label><input type="number" id="cn-a1" placeholder="177" min="0"></div>
+        <div class="field"><label>Atraso 2 meses</label><input type="number" id="cn-a2" placeholder="48" min="0"></div>
+      </div>
+      <div class="g2f" style="margin-top:12px">
+        <div class="field"><label>Atraso 3+ meses</label><input type="number" id="cn-a3" placeholder="15" min="0"></div>
+        <div class="field"><label>Lotes liquidados</label><input type="number" id="cn-liq" placeholder="2" min="0"></div>
+      </div>
+    </div>
+
+    <!-- Lotes Entregados SUR -->
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--sur)">Lotes Entregados · Santa Catalina Sur</div>
+      <div class="field" style="margin-bottom:12px"><label>Total entregados</label><input type="number" id="les-tot" placeholder="641" min="0"></div>
+      <div class="g3f">
+        <div class="field"><label>C-V sin addendum</label><input type="number" id="les-cv" placeholder="13" min="0"></div>
+        <div class="field"><label>C-V con addendum</label><input type="number" id="les-cva" placeholder="331" min="0"></div>
+        <div class="field"><label>C-P (promesa)</label><input type="number" id="les-cp" placeholder="534" min="0"></div>
+      </div>
+    </div>
+
+    <!-- Lotes Entregados NORTE -->
+    <div class="fgroup">
+      <div class="fgroup-title" style="color:var(--norte)">Lotes Entregados · Santa Catalina Norte</div>
+      <div class="field" style="margin-bottom:12px"><label>Total entregados</label><input type="number" id="len-tot" placeholder="0" min="0"></div>
+      <div class="g3f">
+        <div class="field"><label>C-V sin addendum</label><input type="number" id="len-cv" placeholder="0" min="0"></div>
+        <div class="field"><label>C-V con addendum</label><input type="number" id="len-cva" placeholder="0" min="0"></div>
+        <div class="field"><label>C-P (promesa)</label><input type="number" id="len-cp" placeholder="0" min="0"></div>
+      </div>
+    </div>
+
+    <div class="fnav"><button class="btn btn-ghost" onclick="goStep(4)">← Atrás</button><button class="btn btn-primary" onclick="goStep(6)">Ver resumen →</button></div>
+  </div>
+
+  <!-- PASO 6: PREVIEW + GUARDAR -->
+  <div class="fsec" id="fsec6">
+    <div class="fsec-title">Confirmar y Guardar</div>
+    <div class="fsec-sub">Revisa los datos — al guardar el dashboard se actualiza automáticamente</div>
+    <div class="prev-kpis" id="prev-kpis">
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--norte)">$827,405</div><div class="prev-kpi-lbl">S.C. Norte</div></div>
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--sur)">$759,458</div><div class="prev-kpi-lbl">S.C. Sur</div></div>
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--total)">$1,586,863</div><div class="prev-kpi-lbl">Total General</div></div></div>
+    <div class="prev-card" id="prev-detail">
+    <h3>Junio · 1er Corte</h3>
+    <table class="dtable" style="margin-bottom:14px">
+      <thead><tr><th>Fraccionamiento</th><th>1er Corte</th><th>2do Corte</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Norte</td><td style="color:var(--norte)">$827,405</td><td style="color:var(--norte)">$0</td><td>$827,405</td></tr>
+        <tr><td>Sur</td>  <td style="color:var(--sur)">$759,458</td><td style="color:var(--sur)">$0</td><td>$759,458</td></tr>
+      </tbody>
+      <tfoot><tr><td style="color:var(--accent)">Total</td><td style="color:var(--total)">$1,586,863</td><td style="color:var(--total)">$0</td><td style="color:var(--total)">$1,586,863</td></tr></tfoot>
+    </table>
+    <div style="font-size:11px;color:var(--dim)">Norte: 388 vendidos · 73 en proceso &nbsp;|&nbsp; Sur: 878 vendidos · 1 en proceso</div></div>
+    <div class="fnav">
+      <button class="btn btn-ghost" onclick="goStep(5)">← Editar</button>
+      <button class="btn btn-success" onclick="saveRecord()">✓ Guardar y actualizar dashboard</button>
+    </div>
+  </div>
+
+</div>
+</div><!-- /view captura -->
+
+
+<!-- ══════════════════════════════════════
+     VIEW: INGRESO DIARIO SCT
+══════════════════════════════════════ -->
+<div class="view" id="view-sct">
+<div class="form-wrap" style="max-width:980px">
+
+  <div class="form-header">
+    <div class="eyebrow">Santa Catalina Total</div>
+    <h1 style="font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:300">Ingreso <em style="font-style:normal;color:var(--total);font-weight:600">Diario</em></h1>
+    <p style="font-size:12px;color:var(--dim);margin-top:8px">Captura el ingreso total del día. Al cierre del mes puedes distribuirlo entre Norte y Sur.</p>
+  </div>
+
+  <!-- KPIs rápidos SCT -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:2px" id="sct-kpis">
+    <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Ingreso Hoy</div><div class="kpi-val" style="color:var(--total);font-size:28px" id="sct-k-hoy">$481,417</div><div class="kpi-sub">Sin capturar</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Mes Actual</div><div class="kpi-val" style="color:var(--text);font-size:28px" id="sct-k-mes">$481,417</div><div class="kpi-sub" id="sct-k-mes-sub">Junio — acumulado</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Días capturados</div><div class="kpi-val" style="color:var(--text)" id="sct-k-dias">1</div><div class="kpi-sub">este mes</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--total)"></div><div class="kpi-lbl">Sin distribuir</div><div class="kpi-val" style="color:var(--sur);font-size:28px" id="sct-k-nodist">$481,417</div><div class="kpi-sub">pendiente de asignar</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px">
+
+    <!-- CAPTURA DEL DÍA -->
+    <div class="card">
+      <div class="card-title">Capturar Ingreso del Día</div>
+      <div class="card-sub">Registra el total recibido hoy en SCT</div>
+      <div class="fgroup" style="background:var(--surface2);padding:20px;margin-bottom:0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="field">
+            <label>Fecha</label>
+            <input type="date" id="sct-fecha">
+          </div>
+          <div class="field">
+            <label>Mes</label>
+            <select id="sct-mes">
+              <option value="">Seleccionar...</option>
+              <option>Enero</option><option>Febrero</option><option>Marzo</option>
+              <option>Abril</option><option>Mayo</option><option>Junio</option>
+              <option>Julio</option><option>Agosto</option><option>Septiembre</option>
+              <option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <label>Ingreso Total SCT</label>
+          <div class="pfx-wrap">
+            <span class="pfx">$</span>
+            <input type="number" id="sct-monto" placeholder="0.00" min="0" step="0.01" style="font-size:22px;padding:14px 14px 14px 26px" oninput="sctPreview()">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="field">
+            <label>Concepto / nota</label>
+            <input type="text" id="sct-concepto" placeholder="Cobranza, transferencia...">
+          </div>
+          <div class="field">
+            <label>Tipo de corte</label>
+            <select id="sct-corte">
+              <option value="1">1er Corte (01–15)</option>
+              <option value="2">2do Corte (16–31)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-success" style="width:100%;padding:14px" onclick="saveSCT()">
+          + Registrar ingreso del día
+        </button>
+      </div>
+    </div>
+
+    <!-- DISTRIBUCIÓN AL CIERRE -->
+    <div class="card">
+      <div class="card-title">Distribución al Cierre de Mes</div>
+      <div class="card-sub">Cuando sepas el desglose, asigna Norte y Sur</div>
+      <div class="fgroup" style="background:var(--surface2);padding:20px;margin-bottom:0">
+        <div class="field" style="margin-bottom:14px">
+          <label>Mes a distribuir</label>
+          <select id="sct-dist-mes"><option value="">Seleccionar mes...</option><option value="Marzo">Marzo</option><option value="Junio">Junio</option></select>
+        </div>
+        <div style="padding:12px 14px;background:var(--surface3);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase">Total del mes</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--total)" id="sct-dist-tot">$0</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="field">
+            <label style="color:var(--norte)">Monto SCN (Norte)</label>
+            <div class="pfx-wrap">
+              <span class="pfx">$</span>
+              <input type="number" id="sct-dist-n" placeholder="0.00" min="0" step="0.01" oninput="sctDistPreview()">
+            </div>
+          </div>
+          <div class="field">
+            <label style="color:var(--sur)">Monto SCS (Sur)</label>
+            <div class="pfx-wrap">
+              <span class="pfx">$</span>
+              <input type="number" id="sct-dist-s" placeholder="0.00" min="0" step="0.01" oninput="sctDistPreview()">
+            </div>
+          </div>
+        </div>
+        <!-- Barra de distribución visual -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+            <span style="color:var(--norte)" id="sct-dist-n-pct">Norte: 0%</span>
+            <span style="color:var(--sur)" id="sct-dist-s-pct">Sur: 0%</span>
+          </div>
+          <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;display:flex">
+            <div id="sct-dist-bar-n" style="height:100%;background:var(--norte);transition:width .3s;width:0%"></div>
+            <div id="sct-dist-bar-s" style="height:100%;background:var(--sur);transition:width .3s;width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--err);margin-top:6px;display:none" id="sct-dist-warn">
+            ⚠ La suma no coincide con el total del mes
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:14px" onclick="saveSCTDist()">
+          ✓ Guardar distribución
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE REGISTROS DIARIOS -->
+  <div class="card">
+    <div class="card-title">Registros Diarios SCT</div>
+    <div class="card-sub">Historial de ingresos capturados · más reciente primero</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <select id="sct-filtro-mes" onchange="renderSCTTable()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none"><option value="">Todos los meses</option><option value="Marzo">Marzo</option><option value="Junio">Junio</option></select>
+      <div style="margin-left:auto;font-size:12px;color:var(--dim);align-self:center">
+        Total filtrado: <strong style="color:var(--total)" id="sct-tabla-total">$2,604,347</strong>
+      </div>
+    </div>
+    <table class="dtable" id="sct-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Mes</th>
+          <th>Corte</th>
+          <th>Concepto</th>
+          <th>Total SCT</th>
+          <th>Norte</th>
+          <th>Sur</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="sct-tbody">
+    <tr>
+      <td style="color:var(--dim)">2026-06-22</td>
+      <td>Junio</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$481,417</td>
+      <td style="color:var(--norte)"><span style="color:var(--dim)">—</span></td>
+      <td style="color:var(--sur)"><span style="color:var(--dim)">—</span></td>
+      <td><span style="color:var(--sur);font-size:10px;letter-spacing:.08em">PENDIENTE</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1782154468695')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-04-07</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$453,826</td>
+      <td style="color:var(--norte)">$177,678</td>
+      <td style="color:var(--sur)">$276,148</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1775581630546')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-03-30</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$398,967</td>
+      <td style="color:var(--norte)">$156,200</td>
+      <td style="color:var(--sur)">$242,767</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1774912710448')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-03-26</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$264,694</td>
+      <td style="color:var(--norte)">$103,631</td>
+      <td style="color:var(--sur)">$161,063</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1774549217175')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-03-24</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$171,214</td>
+      <td style="color:var(--norte)">$67,032</td>
+      <td style="color:var(--sur)">$104,182</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1774393703513')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-03-23</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$262,757</td>
+      <td style="color:var(--norte)">$102,872</td>
+      <td style="color:var(--sur)">$159,885</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1774290628914')" title="Eliminar">✕</button></td>
+    </tr>
+    <tr>
+      <td style="color:var(--dim)">2026-03-20</td>
+      <td>Marzo</td>
+      <td style="color:var(--dim)">2do corte</td>
+      <td style="color:var(--dim);font-size:11px">—</td>
+      <td style="color:var(--total)">$571,472</td>
+      <td style="color:var(--norte)">$223,738</td>
+      <td style="color:var(--sur)">$347,734</td>
+      <td><span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span></td>
+      <td><button class="rec-del" onclick="delSCT('sct_1774032346622')" title="Eliminar">✕</button></td>
+    </tr></tbody>
+    </table>
+  </div>
+
+  <!-- Gráfica acumulado mensual -->
+  <div class="card" style="margin-top:2px">
+    <div class="card-title">Tendencia de Ingresos SCT</div>
+    <div class="card-sub">Acumulado diario por mes</div>
+    <canvas id="sct-chart" height="64" style="display: block; box-sizing: border-box; height: 64px; width: 860px;" width="860"></canvas>
+  </div>
+
+</div>
+</div><!-- /view sct -->
+<div class="view" id="view-historial">
+<div class="wrap">
+  <div class="dash-header">
+    <div>
+      <div class="eyebrow">Registros guardados</div>
+      <h1>Historial de <em>Capturas</em></h1>
+    </div>
+    <div style="display:flex;gap:8px;align-self:center">
+      <button class="btn" style="background:rgba(201,168,76,.15);color:var(--accent);border:1px solid rgba(201,168,76,.3)" onclick="resetSeeds()">↺ Corregir datos base</button>
+      <button class="btn btn-danger" onclick="clearAll()">Borrar todo</button>
+    </div>
+  </div>
+  <div id="hist-list"><div class="empty">No hay registros guardados aún.<br>Ve a Captura de Datos para agregar el primero.</div></div>
+</div>
+</div>
+
+<div class="toast" id="toast">✓ Ingreso registrado</div>
+
+<script>
+/* ══════════════════════════════════════════
+   DATA STORE
+   En modo normal usa localStorage.
+   En modo exportado usa datos incrustados.
+══════════════════════════════════════════ */
+const STORE_KEY = 'sc_registros';
+const SCT_KEY   = 'sc_sct_registros';
+
+// Datos incrustados al exportar (null = usar localStorage)
+var DATOS_EXPORTADOS     = [{"id":"seed1","fecha":"2026-01-31","mes":"Enero","corte":"2","metaN":33,"metaS":33,"nC1":689574,"nC2":806541.39,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":1206363.59,"sC2":1318756.85,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":659,"lLiq":219,"lRev":1,"lDsp":0,"lNdp":30,"lnAnt":387,"lnLiq":2,"lnRev":72,"lnDsp":0,"csCorriente":347,"csPdp":0,"csA1":219,"csA2":55,"csA3":38,"csLiq":219,"cnCorriente":272,"cnPdp":0,"cnA1":95,"cnA2":14,"cnA3":6,"cnLiq":2,"csqCorriente":140,"csqPdp":284,"csqA1":143,"csqA2":31,"csqA3":30,"csqLiq":250,"cnqCorriente":148,"cnqPdp":178,"cnqA1":48,"cnqA2":9,"cnqA3":4,"cnqLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"estN":0,"estS":0,"estT":0,"notas":""},{"id":"seed2","fecha":"2026-02-28","mes":"Febrero","corte":"2","metaN":33,"metaS":33,"nC1":841525.52,"nC2":830908.26,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":967068.75,"sC2":1282141.05,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":573,"lLiq":305,"lRev":1,"lDsp":0,"lNdp":30,"lnAnt":387,"lnLiq":2,"lnRev":72,"lnDsp":0,"csCorriente":278,"csPdp":0,"csA1":172,"csA2":84,"csA3":38,"csLiq":306,"cnCorriente":281,"cnPdp":0,"cnA1":76,"cnA2":21,"cnA3":9,"cnLiq":2,"csqCorriente":140,"csqPdp":284,"csqA1":143,"csqA2":31,"csqA3":30,"csqLiq":250,"cnqCorriente":148,"cnqPdp":178,"cnqA1":48,"cnqA2":9,"cnqA3":4,"cnqLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"estN":0,"estS":0,"estT":0,"notas":""},{"id":"seed3","fecha":"2026-03-15","mes":"Marzo","corte":"1","metaN":33,"metaS":33,"nC1":825741,"nC2":0,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":1234367.43,"sC2":0,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":520,"lLiq":358,"lRev":1,"lDsp":0,"lNdp":30,"lnAnt":387,"lnLiq":2,"lnRev":72,"lnDsp":0,"csPdp":211,"csA1":102,"csA2":42,"csA3":28,"csLiq":359,"cnCorriente":147,"cnPdp":177,"cnA1":48,"cnA2":10,"cnA3":5,"cnLiq":2,"csqCorriente":136,"csqPdp":211,"csqA1":102,"csqA2":42,"csqA3":28,"csqLiq":359,"cnqCorriente":147,"cnqPdp":177,"cnqA1":48,"cnqA2":10,"cnqA3":5,"cnqLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"estN":1717636,"estS":1978341.36,"estT":3695977.36,"notas":"2do corte pendiente"},{"id":"1775583050839","fecha":"2026-04-07","mes":"Marzo","corte":"2","metaN":33,"metaS":33,"nC1":0,"nC2":831150.81,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":0,"sC2":1291779,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":866,"lLiq":402,"lRev":73,"lDsp":0,"lNdp":39,"estN":1717636,"estS":1978341,"estT":3695977,"csCorriente":274,"csPdp":114,"csA1":41,"csA2":41,"csA3":49,"csLiq":400,"cnCorriente":286,"cnA1":70,"cnA2":20,"cnA3":11,"cnLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"notas":""},{"id":"1776443452004","fecha":"2026-04-15","mes":"Abril","corte":"1","metaN":33,"metaS":33,"nC1":912271,"nC2":0,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":798315.09,"sC2":0,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":829,"lLiq":438,"lRev":73,"lDsp":0,"lNdp":30,"estN":1717636,"estS":1711881.36,"estT":3429517.36,"csCorriente":191,"csPdp":207,"csA1":71,"csA2":20,"csA3":42,"csLiq":437,"cnCorriente":148,"cnA1":35,"cnA2":10,"cnA3":8,"cnLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"notas":""},{"id":"1777925358274","fecha":"2026-04-30","mes":"Abril","corte":"2","metaN":33,"metaS":33,"nC1":0,"nC2":741743.75,"nVend":389,"nProc":72,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":0,"sC2":816321,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":782,"lLiq":485,"lRev":73,"lDsp":0,"lNdp":30,"estN":1717636,"estS":1711881,"estT":3429517,"csCorriente":189,"csPdp":0,"csA1":127,"csA2":29,"csA3":49,"csLiq":484,"cnCorriente":271,"cnA1":84,"cnA2":19,"cnA3":13,"cnLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"notas":""},{"id":"1781807566681","fecha":"2026-06-18","mes":"Junio","corte":"1","metaN":33,"metaS":33,"nC1":827405,"nC2":0,"nVend":388,"nProc":73,"nDisp":0,"nVmes":0,"nTinv":461,"sC1":759457.53,"sC2":0,"sVend":878,"sProc":1,"sDisp":0,"sVmes":0,"sTinv":909,"lTot":1370,"lAnt":692,"lLiq":574,"lRev":73,"lDsp":0,"lNdp":30,"estN":1713802,"estS":1246684,"estT":2960486,"csCorriente":67,"csPdp":142,"csA1":37,"csA2":21,"csA3":37,"csLiq":572,"cnCorriente":146,"cnA1":44,"cnA2":7,"cnA3":8,"cnLiq":2,"lesTot":641,"lesCv":13,"lesCva":331,"lesCp":534,"lenTot":0,"lenCv":0,"lenCva":0,"lenCp":0,"notas":""}]; // Exportado 22 de junio de 2026
+var DATOS_SCT_EXPORTADOS = [{"id":"sct_1774032346622","fecha":"2026-03-20","mes":"Marzo","corte":"2","concepto":"","monto":571471.8,"norte":223737.61,"sur":347734.17,"distribuido":true},{"id":"sct_1774290628914","fecha":"2026-03-23","mes":"Marzo","corte":"2","concepto":"","monto":262757.28,"norte":102872.42,"sur":159884.86,"distribuido":true},{"id":"sct_1774393703513","fecha":"2026-03-24","mes":"Marzo","corte":"2","concepto":"","monto":171213.85,"norte":67032.14,"sur":104181.71,"distribuido":true},{"id":"sct_1774549217175","fecha":"2026-03-26","mes":"Marzo","corte":"2","concepto":"","monto":264694.07,"norte":103630.69,"sur":161063.37,"distribuido":true},{"id":"sct_1774912710448","fecha":"2026-03-30","mes":"Marzo","corte":"2","concepto":"","monto":398967.07,"norte":156200.07,"sur":242766.98,"distribuido":true},{"id":"sct_1775581630546","fecha":"2026-04-07","mes":"Marzo","corte":"2","concepto":"","monto":453825.81,"norte":177677.88,"sur":276147.91,"distribuido":true},{"id":"sct_1782154468695","fecha":"2026-06-22","mes":"Junio","corte":"2","concepto":"","monto":481417.45,"norte":null,"sur":null,"distribuido":false}]; // Exportado 22 de junio de 2026
+
+function loadRecords(){
+  return DATOS_EXPORTADOS || [];
+}
+function saveRecords(r){
+  DATOS_EXPORTADOS = r; // actualiza en memoria inmediatamente
+  localStorage.setItem(STORE_KEY, JSON.stringify(r));
+}
+function loadSCT(){
+  return DATOS_SCT_EXPORTADOS || [];
+}
+function saveSCT_data(r){
+  DATOS_SCT_EXPORTADOS = r; // actualiza en memoria para que renderSCT lo vea inmediatamente
+  localStorage.setItem(SCT_KEY, JSON.stringify(r)); // persiste por si acaso
+}
+
+// Seed data — siempre se reemplaza al cargar para garantizar datos correctos
+const SEED_VER = 'v9';
+const SEEDS = [
+  { id:'seed1', fecha:'2026-01-31', mes:'Enero', corte:'2', metaN:33, metaS:33,
+    nC1:689574, nC2:806541.39, nVend:389, nProc:72, nDisp:0, nVmes:0, nTinv:461,
+    sC1:1206363.59, sC2:1318756.85, sVend:878, sProc:1, sDisp:0, sVmes:0, sTinv:909,
+    lTot:1370, lAnt:659, lLiq:219, lRev:1, lDsp:0, lNdp:30,
+    lnAnt:387, lnLiq:2, lnRev:72, lnDsp:0,
+    csCorriente:347, csPdp:0, csA1:219, csA2:55, csA3:38, csLiq:219,
+    cnCorriente:272, cnPdp:0, cnA1:95, cnA2:14, cnA3:6, cnLiq:2,
+    csqCorriente:140, csqPdp:284, csqA1:143, csqA2:31, csqA3:30, csqLiq:250,
+    cnqCorriente:148, cnqPdp:178, cnqA1:48, cnqA2:9, cnqA3:4, cnqLiq:2,
+    lesTot:641, lesCv:13, lesCva:331, lesCp:534, lenTot:0, lenCv:0, lenCva:0, lenCp:0, estN:0, estS:0, estT:0, notas:'' },
+  { id:'seed2', fecha:'2026-02-28', mes:'Febrero', corte:'2', metaN:33, metaS:33,
+    nC1:841525.52, nC2:830908.26, nVend:389, nProc:72, nDisp:0, nVmes:0, nTinv:461,
+    sC1:967068.75, sC2:1282141.05, sVend:878, sProc:1, sDisp:0, sVmes:0, sTinv:909,
+    lTot:1370, lAnt:573, lLiq:305, lRev:1, lDsp:0, lNdp:30,
+    lnAnt:387, lnLiq:2, lnRev:72, lnDsp:0,
+    csCorriente:278, csPdp:0, csA1:172, csA2:84, csA3:38, csLiq:306,
+    cnCorriente:281, cnPdp:0, cnA1:76, cnA2:21, cnA3:9, cnLiq:2,
+    csqCorriente:140, csqPdp:284, csqA1:143, csqA2:31, csqA3:30, csqLiq:250,
+    cnqCorriente:148, cnqPdp:178, cnqA1:48, cnqA2:9, cnqA3:4, cnqLiq:2,
+    lesTot:641, lesCv:13, lesCva:331, lesCp:534, lenTot:0, lenCv:0, lenCva:0, lenCp:0, estN:0, estS:0, estT:0, notas:'' },
+  { id:'seed3', fecha:'2026-03-15', mes:'Marzo', corte:'1', metaN:33, metaS:33,
+    nC1:825741, nC2:0, nVend:389, nProc:72, nDisp:0, nVmes:0, nTinv:461,
+    sC1:1234367.43, sC2:0, sVend:878, sProc:1, sDisp:0, sVmes:0, sTinv:909,
+    lTot:1370, lAnt:520, lLiq:358, lRev:1, lDsp:0, lNdp:30,
+    lnAnt:387, lnLiq:2, lnRev:72, lnDsp:0, csPdp:211, csA1:102, csA2:42, csA3:28, csLiq:359,
+    cnCorriente:147, cnPdp:177, cnA1:48, cnA2:10, cnA3:5, cnLiq:2,
+    csqCorriente:136, csqPdp:211, csqA1:102, csqA2:42, csqA3:28, csqLiq:359,
+    cnqCorriente:147, cnqPdp:177, cnqA1:48, cnqA2:10, cnqA3:5, cnqLiq:2,
+    lesTot:641, lesCv:13, lesCva:331, lesCp:534, lenTot:0, lenCv:0, lenCva:0, lenCp:0, estN:1717636, estS:1978341.36, estT:3695977.36, notas:'2do corte pendiente' },
+];
+// Siempre reemplaza seeds con datos correctos, conserva registros del usuario
+(function applySeed(){
+  const all = loadRecords();
+  const userRecs = all.filter(r => !r.id.startsWith('seed'));
+  saveRecords([...SEEDS, ...userRecs]);
+  localStorage.setItem('sc_seed_ver', SEED_VER);
+})();
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const n = id => parseFloat($(id)?.value)||0;
+const money = v => v==null||isNaN(v) ? '—' : '$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const pct   = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '—';
+const GRID  = 'rgba(255,255,255,0.05)';
+const fmtM  = v => '$'+(v/1e6).toFixed(2)+'M';
+
+/* chart instances — to destroy on re-render */
+const charts = {};
+function mkChart(id, cfg){
+  if(charts[id]) charts[id].destroy();
+  const el = $(id); if(!el) return;
+  charts[id] = new Chart(el, cfg);
+}
+
+/* ══════════════════════════════════════════
+   VIEW NAVIGATION
+══════════════════════════════════════════ */
+function showView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.app-tab').forEach(x=>x.classList.remove('active'));
+  $('view-'+v).classList.add('active');
+  const tabs=['dashboard','sct','captura','historial'];
+  document.querySelectorAll('.app-tab')[tabs.indexOf(v)].classList.add('active');
+  if(v==='dashboard') renderDashboard();
+  if(v==='historial') renderHistorial();
+  if(v==='sct') renderSCT();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD SELECTOR
+══════════════════════════════════════════ */
+function setFrac(id){
+  document.querySelectorAll('.btn-sel').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.btn-sel.'+id).classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('p-'+id).classList.add('active');
+}
+
+/* ══════════════════════════════════════════
+   RENDER DASHBOARD
+══════════════════════════════════════════ */
+// Globals para que los selectores de mes funcionen tras exportar
+let _aggGlobal = [];
+let _sctAllGlobal = [];
+
+function renderDashboard(){
+  const records = loadRecords();
+  if(!records.length){ $('dash-update').textContent='Sin datos capturados'; return; }
+
+  // Group by month
+  const byMes = {};
+  records.forEach(r=>{
+    if(!byMes[r.mes]) byMes[r.mes]=[];
+    byMes[r.mes].push(r);
+  });
+
+  // Build monthly aggregates
+  const months = [...new Set(records.map(r=>r.mes))];
+  const agg = months.map(mes=>{
+    const recs = byMes[mes];
+    const last = recs[recs.length-1];
+    return {
+      mes,
+      nC1: recs.reduce((s,r)=>s+r.nC1,0),
+      nC2: recs.reduce((s,r)=>s+r.nC2,0),
+      sC1: recs.reduce((s,r)=>s+r.sC1,0),
+      sC2: recs.reduce((s,r)=>s+r.sC2,0),
+      nVend: last.nVend, nProc: last.nProc, nDisp: last.nDisp, nTinv: last.nTinv, nVmes: last.nVmes,
+      sVend: last.sVend, sProc: last.sProc, sDisp: last.sDisp, sTinv: last.sTinv, sVmes: last.sVmes,
+      metaN: last.metaN||33, metaS: last.metaS||33,
+      // Lotes Sur
+      lTot:last.lTot, lAnt:last.lAnt, lLiq:last.lLiq, lRev:last.lRev, lDsp:last.lDsp, lNdp:last.lNdp,
+      // Lotes Norte
+      lnAnt:last.lnAnt, lnLiq:last.lnLiq, lnRev:last.lnRev, lnDsp:last.lnDsp,
+      // Cobranza Sur mensual
+      csCorriente:last.csCorriente, csPdp:last.csPdp, csA1:last.csA1, csA2:last.csA2, csA3:last.csA3, csLiq:last.csLiq,
+      // Cobranza Norte mensual
+      cnCorriente:last.cnCorriente, cnPdp:last.cnPdp, cnA1:last.cnA1, cnA2:last.cnA2, cnA3:last.cnA3, cnLiq:last.cnLiq,
+      // Cobranza quincenal Sur
+      csqCorriente:last.csqCorriente, csqPdp:last.csqPdp, csqA1:last.csqA1, csqA2:last.csqA2, csqA3:last.csqA3, csqLiq:last.csqLiq,
+      // Cobranza quincenal Norte
+      cnqCorriente:last.cnqCorriente, cnqPdp:last.cnqPdp, cnqA1:last.cnqA1, cnqA2:last.cnqA2, cnqA3:last.cnqA3, cnqLiq:last.cnqLiq,
+      // Lotes entregados
+      lesTot:last.lesTot, lesCv:last.lesCv, lesCva:last.lesCva, lesCp:last.lesCp,
+      lenTot:last.lenTot, lenCv:last.lenCv, lenCva:last.lenCva, lenCp:last.lenCp,
+      // Estimado mensual
+      estN:last.estN||0, estS:last.estS||0, estT:last.estT||0,
+    };
+  });
+
+  const lastRec = records[records.length-1];
+  const hoyLabel = new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('dash-update').textContent = 'Actualizado: ' + hoyLabel;
+
+  // Badge de periodo: primer mes – último mes capturado
+  const mesAbrev = {Enero:'Ene',Febrero:'Feb',Marzo:'Mar',Abril:'Abr',Mayo:'May',Junio:'Jun',Julio:'Jul',Agosto:'Ago',Septiembre:'Sep',Octubre:'Oct',Noviembre:'Nov',Diciembre:'Dic'};
+  const primerMes = months[0];
+  const ultimoMes = months[months.length-1];
+  const anio = new Date().getFullYear();
+  const periodoLabel = primerMes === ultimoMes
+    ? (mesAbrev[primerMes]||primerMes)+' '+anio
+    : (mesAbrev[primerMes]||primerMes)+' – '+(mesAbrev[ultimoMes]||ultimoMes)+' '+anio;
+  $('dash-periodo').textContent = periodoLabel;
+
+  // Totals
+  const totNorte = agg.reduce((s,a)=>s+a.nC1+a.nC2,0);
+  const totSur   = agg.reduce((s,a)=>s+a.sC1+a.sC2,0);
+  const totGen   = totNorte+totSur;
+  const lastA    = agg[agg.length-1]; // lastA = agg del último mes, con nC1/nC2/sC1/sC2 ya sumados via reduce
+  _aggGlobal = agg; // guardar en global para que los botones accedan tras exportar
+
+  window.updateNorteKPIs = function(a) {
+    $('kn-q1').textContent     = money(a.nC1);
+    $('kn-q1-sub').textContent = '1er corte · '+a.mes;
+    $('kn-q2').textContent     = a.nC2 ? money(a.nC2) : '—';
+    $('kn-q2-sub').textContent = '2do corte · '+a.mes;
+    $('kn-q2-tag').textContent = a.nC2 ? '2do corte capturado' : 'pendiente';
+    $('kn-mes').textContent    = money(a.nC1 + a.nC2);
+    $('kn-mes-sub').textContent= '1er + 2do corte · '+a.mes;
+    $('kn-mes-tag').textContent= a.nC2 ? '1er + 2do corte' : 'Solo 1er corte';
+    // Mes anterior = el mes previo al seleccionado en agg
+    const idxN = _aggGlobal.findIndex(x=>x.mes===a.mes);
+    const prevN = idxN > 0 ? _aggGlobal[idxN-1] : null;
+    $('kn-prev').textContent     = prevN ? money(prevN.nC1+prevN.nC2) : '—';
+    $('kn-prev-sub').textContent = prevN ? '1er + 2do corte · '+prevN.mes : 'sin mes anterior';
+  }
+
+  window.updateSurKPIs = function(a) {
+    $('ks-q1').textContent     = money(a.sC1);
+    $('ks-q1-sub').textContent = '1er corte · '+a.mes;
+    $('ks-q2').textContent     = a.sC2 ? money(a.sC2) : '—';
+    $('ks-q2-sub').textContent = '2do corte · '+a.mes;
+    $('ks-q2-tag').textContent = a.sC2 ? '2do corte capturado' : 'pendiente';
+    $('ks-marzo').textContent  = money(a.sC1 + a.sC2);
+    $('ks-marzo-sub').textContent = '1er + 2do corte · '+a.mes;
+    $('ks-marzo-tag').textContent = a.sC2 ? '1er + 2do corte' : 'Solo 1er corte';
+    // Mes anterior = el mes previo al seleccionado en agg
+    const idxS = _aggGlobal.findIndex(x=>x.mes===a.mes);
+    const prevS = idxS > 0 ? _aggGlobal[idxS-1] : null;
+    $('ks-prev').textContent     = prevS ? money(prevS.sC1+prevS.sC2) : '—';
+    $('ks-prev-sub').textContent = prevS ? '1er + 2do corte · '+prevS.mes : 'sin mes anterior';
+  }
+
+  window._updateSCTKPIs = function(mes) {
+    const sctFresh = loadSCT();
+    // Usar _aggGlobal (no agg local) para que funcione tras exportar
+    const aggMes = _aggGlobal.find(a=>a.mes===mes) || {nC1:0,nC2:0,sC1:0,sC2:0,mes};
+    const q1 = aggMes.nC1 + aggMes.sC1;
+    const q2 = aggMes.nC2 + aggMes.sC2;
+    // SCT diario del mes seleccionado
+    const sctDelMes = sctFresh.filter(r=>r.mes===mes);
+    const sctDelMesTot = sctDelMes.reduce((s,r)=>s+r.monto,0);
+    const sctDelMesDias = sctDelMes.length;
+    // Si hay quincenal cerrado, ese ES el total (el SCT diario ya está incluido en él)
+    // Si NO hay quincenal (ej. Mayo en curso), el SCT diario es el total provisional
+    const tieneQuincenal = (q1 + q2) > 0;
+    const totMes = tieneQuincenal ? (q1 + q2) : sctDelMesTot;
+    $('kt-sct-q1').textContent      = q1 ? money(q1) : '—';
+    $('kt-sct-q1-sub').textContent  = '1ra quincena SCN+SCS · '+mes;
+    $('kt-sct-q2').textContent      = q2 ? money(q2) : '—';
+    $('kt-sct-q2-sub').textContent  = '2da quincena SCN+SCS · '+mes;
+    $('kt-sct-tot').textContent     = totMes ? money(totMes) : '—';
+    $('kt-sct-mes-label').textContent = tieneQuincenal ? '1ra+2da quincena SCN+SCS · '+mes : 'SCT diario acumulado · '+mes+' (sin cierre)';
+    $('kt-sct-dias').textContent    = sctDelMesDias ? sctDelMesDias+' reg.' : '—';
+    $('kt-sct-prom').textContent    = sctDelMesTot ? 'SCT diario: '+money(sctDelMesTot) : 'sin SCT diario';
+    // Mes anterior — solo quincenales
+    const mesOrdenAll = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const idxT = mesOrdenAll.indexOf(mes);
+    const prevTMes = idxT > 0 ? mesOrdenAll[idxT-1] : null;
+    const prevTAgg = prevTMes ? _aggGlobal.find(a=>a.mes===prevTMes) : null;
+    const prevTTot = prevTAgg ? (prevTAgg.nC1+prevTAgg.nC2+prevTAgg.sC1+prevTAgg.sC2) : 0;
+    $('kt-mes').textContent     = prevTMes && prevTAgg ? money(prevTTot) : '—';
+    $('kt-mes-sub').textContent = prevTAgg ? prevTMes+' · Norte+Sur quincenal' : 'sin mes anterior';
+  }
+
+
+  // SCT diario del mes actual (definir mesActual aquí para usarlo en todos los KPIs)
+  const sctAll    = loadSCT();
+  _sctAllGlobal = sctAll; // guardar en global
+  const mesActual = mesNames[new Date().getMonth()];
+
+  // Último mes COMPLETO: siempre es el penúltimo mes capturado (el mes anterior al último registrado).
+  // El "Ingresos Mes Anterior" debe mostrar el mes previo al que acaba de capturarse.
+  // Si solo hay un mes, se usa ese mismo.
+  const ultimoCompleto = agg.length > 1 ? agg[agg.length-2] : lastA;
+
+  /* ── KPIs Norte ── */
+  $('kn-ing').textContent       = money(totNorte);
+  $('kn-ing-sub').textContent   = periodoLabel;
+  $('kn-pct').textContent       = pct(totNorte,totGen)+' del total';
+  $('kn-lotes').textContent     = lastA.nVend+' / '+lastA.nTinv;
+  $('kn-lotes-sub').textContent = pct(lastA.nVend,lastA.nTinv)+' vendido';
+  $('kn-proceso').textContent   = lastA.nProc+' en revisión';
+  $('kn-prev').textContent      = money(ultimoCompleto.nC1 + ultimoCompleto.nC2);
+  $('kn-prev-sub').textContent  = '1er + 2do corte · '+ultimoCompleto.mes;
+
+  // Construir selector de mes Norte
+  const nSel = $('n-mes-selector');
+  nSel.querySelectorAll('button').forEach(b=>b.remove());
+  agg.forEach((a,i) => {
+    const btn = document.createElement('button');
+    btn.textContent = a.mes;
+    btn.style.cssText = 'padding:5px 12px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;transition:all .2s;border-radius:2px';
+    const isActive = i === agg.length-1;
+    btn.style.background = isActive ? 'var(--norte)' : 'var(--surface2)';
+    btn.style.color = isActive ? '#0c0e13' : 'var(--dim)';
+    btn.dataset.idx = i;
+    btn.onclick = () => {
+      nSel.querySelectorAll('button').forEach(b=>{ b.style.background='var(--surface2)'; b.style.color='var(--dim)'; });
+      btn.style.background='var(--norte)'; btn.style.color='#0c0e13';
+      updateNorteKPIs(_aggGlobal[+btn.dataset.idx]);
+    };
+    nSel.appendChild(btn);
+  });
+  window.updateNorteKPIs(lastA);
+
+  window.updateNorteKPIs = function(a) {
+    $('kn-q1').textContent     = money(a.nC1);
+    $('kn-q1-sub').textContent = '1er corte · '+a.mes;
+    $('kn-q2').textContent     = a.nC2 ? money(a.nC2) : '—';
+    $('kn-q2-sub').textContent = '2do corte · '+a.mes;
+    $('kn-q2-tag').textContent = a.nC2 ? '2do corte capturado' : 'pendiente';
+    $('kn-mes').textContent    = money(a.nC1 + a.nC2);
+    $('kn-mes-sub').textContent= '1er + 2do corte · '+a.mes;
+    $('kn-mes-tag').textContent= a.nC2 ? '1er + 2do corte' : 'Solo 1er corte';
+    // Mes anterior = el mes previo al seleccionado en agg
+    const idxN = agg.findIndex(x=>x.mes===a.mes);
+    const prevN = idxN > 0 ? agg[idxN-1] : null;
+    $('kn-prev').textContent     = prevN ? money(prevN.nC1+prevN.nC2) : '—';
+    $('kn-prev-sub').textContent = prevN ? '1er + 2do corte · '+prevN.mes : 'sin mes anterior';
+  }
+
+  /* ── KPIs Sur ── */
+  const totalMesSur = lastA.sC1 + lastA.sC2; // total mes actual (abril)
+  const sctMes    = sctAll.filter(r => r.mes === mesActual);
+  const sctQ1     = sctMes.filter(r => r.corte === '1').reduce((s,r)=>s+r.monto,0);
+  const sctQ2     = sctMes.filter(r => r.corte === '2').reduce((s,r)=>s+r.monto,0);
+  const sctTot    = sctQ1 + sctQ2;
+  const sctDias   = sctMes.length;
+  const sctProm   = sctDias ? sctTot / sctDias : 0;
+  // Solo sumar quincenal si el último mes registrado ES el mes actual
+  const ingQuincenalMes = lastA.mes === mesActual ? (lastA.nC1 + lastA.nC2 + lastA.sC1 + lastA.sC2) : 0;
+  const totalMesEstimado = ingQuincenalMes + sctTot;
+
+  $('ks-ing').textContent       = money(totSur);
+  $('ks-ing-sub').textContent   = periodoLabel;
+  $('ks-pct').textContent       = pct(totSur,totGen)+' del total';
+  $('ks-lotes').textContent     = lastA.sVend+' / '+lastA.sTinv;
+  $('ks-lotes-sub').textContent = pct(lastA.sVend,lastA.sTinv)+' vendido';
+  $('ks-proceso').textContent   = lastA.sProc+' en revisión';
+  $('ks-prev').textContent      = money(ultimoCompleto.sC1 + ultimoCompleto.sC2);
+  $('ks-prev-sub').textContent  = '1er + 2do corte · '+ultimoCompleto.mes;
+
+  // Construir selector de mes Sur
+  const sSel = $('s-mes-selector');
+  sSel.querySelectorAll('button').forEach(b=>b.remove());
+  agg.forEach((a,i) => {
+    const btn = document.createElement('button');
+    btn.textContent = a.mes;
+    btn.style.cssText = 'padding:5px 12px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;transition:all .2s;border-radius:2px';
+    const isActive = i === agg.length-1;
+    btn.style.background = isActive ? 'var(--sur)' : 'var(--surface2)';
+    btn.style.color = isActive ? '#0c0e13' : 'var(--dim)';
+    btn.dataset.idx = i;
+    btn.onclick = () => {
+      sSel.querySelectorAll('button').forEach(b=>{ b.style.background='var(--surface2)'; b.style.color='var(--dim)'; });
+      btn.style.background='var(--sur)'; btn.style.color='#0c0e13';
+      updateSurKPIs(_aggGlobal[+btn.dataset.idx]);
+    };
+    sSel.appendChild(btn);
+  });
+  window.updateSurKPIs(lastA);
+
+
+  /* ── KPIs Total ── */
+  const totVend = lastA.nVend+lastA.sVend;
+  const totTinv = lastA.nTinv+lastA.sTinv;
+  const totProc = lastA.nProc+lastA.sProc;
+  const ingUltimoMesReal = ultimoCompleto.nC1 + ultimoCompleto.nC2 + ultimoCompleto.sC1 + ultimoCompleto.sC2;
+  $('kt-ing').textContent       = money(totGen);
+  $('kt-lotes').textContent     = totTinv;
+  $('kt-pct').textContent       = pct(totVend,totTinv)+' vendido';
+  $('kt-vend').textContent      = totVend+' / '+totProc;
+  $('kt-vend-sub').textContent  = 'vendidos / en proceso';
+  $('kt-proc').textContent      = pct(totVend,totTinv)+' del inventario';
+  $('kt-mes').textContent       = money(ingUltimoMesReal);
+  $('kt-mes-sub').textContent   = ultimoCompleto.mes+' · Norte+Sur (mes anterior)';
+
+  const mLabels = agg.map(a=>a.mes);
+  const nTots   = agg.map(a=>a.nC1+a.nC2);
+  const sTots   = agg.map(a=>a.sC1+a.sC2);
+  const tTots   = agg.map((a,i)=>nTots[i]+sTots[i]);
+
+  /* ── CHARTS Norte ── */
+  mkChart('n-bar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'1er Corte',data:agg.map(a=>a.nC1),backgroundColor:'rgba(79,163,212,0.75)',stack:'a'},
+    {label:'2do Corte',data:agg.map(a=>a.nC2),backgroundColor:'rgba(79,163,212,0.3)',stack:'a'},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{x:{stacked:true,grid:{color:GRID}},y:{stacked:true,grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  mkChart('n-qbar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'1er Corte',data:agg.map(a=>a.nC1),backgroundColor:'rgba(79,163,212,0.8)',borderRadius:2},
+    {label:'2do Corte',data:agg.map(a=>a.nC2),backgroundColor:'rgba(212,148,79,0.7)',borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9}}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:9}}},y:{grid:{color:GRID},ticks:{callback:fmtM,font:{size:9}}}}}});
+
+  mkChart('n-line',{type:'line',data:{labels:mLabels,datasets:[{label:'Norte',data:nTots,borderColor:'#4fa3d4',backgroundColor:'rgba(79,163,212,0.07)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#4fa3d4',pointBorderColor:'#12151d',pointBorderWidth:2,tension:.35,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  /* ── CHARTS Sur ── */
+  mkChart('s-bar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'1er Corte',data:agg.map(a=>a.sC1),backgroundColor:'rgba(212,148,79,0.75)',stack:'a'},
+    {label:'2do Corte',data:agg.map(a=>a.sC2),backgroundColor:'rgba(212,148,79,0.3)',stack:'a'},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{x:{stacked:true,grid:{color:GRID}},y:{stacked:true,grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  mkChart('s-qbar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'1er Corte',data:agg.map(a=>a.sC1),backgroundColor:'rgba(79,163,212,0.8)',borderRadius:2},
+    {label:'2do Corte',data:agg.map(a=>a.sC2),backgroundColor:'rgba(212,148,79,0.7)',borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9}}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:9}}},y:{grid:{color:GRID},ticks:{callback:fmtM,font:{size:9}}}}}});
+
+  mkChart('s-line',{type:'line',data:{labels:mLabels,datasets:[{label:'Sur',data:sTots,borderColor:'#d4944f',backgroundColor:'rgba(212,148,79,0.07)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#d4944f',pointBorderColor:'#12151d',pointBorderWidth:2,tension:.35,fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  /* ── CHARTS Total ── */
+  mkChart('t-bar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'S.C. Norte',data:nTots,backgroundColor:'rgba(79,163,212,0.7)',stack:'a'},
+    {label:'S.C. Sur',  data:sTots,backgroundColor:'rgba(212,148,79,0.7)',stack:'a'},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{x:{stacked:true,grid:{color:GRID}},y:{stacked:true,grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  mkChart('t-qbar',{type:'bar',data:{labels:mLabels,datasets:[
+    {label:'1er Corte',data:agg.map(a=>a.nC1+a.sC1),backgroundColor:'rgba(79,163,212,0.8)',borderRadius:2},
+    {label:'2do Corte',data:agg.map(a=>a.nC2+a.sC2),backgroundColor:'rgba(212,148,79,0.7)',borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9}}}},scales:{x:{grid:{color:GRID},ticks:{font:{size:9}}},y:{grid:{color:GRID},ticks:{callback:fmtM,font:{size:9}}}}}});
+
+  mkChart('t-line',{type:'line',data:{labels:mLabels,datasets:[
+    {label:'Norte',data:nTots,borderColor:'#4fa3d4',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#4fa3d4',pointBorderColor:'#12151d',pointBorderWidth:2,tension:.35},
+    {label:'Sur',  data:sTots,borderColor:'#d4944f',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#d4944f',pointBorderColor:'#12151d',pointBorderWidth:2,tension:.35},
+    {label:'Total',data:tTots,borderColor:'#7ec8a0',backgroundColor:'rgba(126,200,160,0.06)',borderWidth:2.5,borderDash:[5,3],pointRadius:4,pointBackgroundColor:'#7ec8a0',pointBorderColor:'#12151d',pointBorderWidth:2,tension:.35,fill:true},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12}}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID},ticks:{callback:fmtM}}}}});
+
+  /* ── TABLES ── */
+  const mkDiff = (a,b) => {
+    const d=b-a;
+    const s=d>=0?'+':'';
+    const c=d>=0?'var(--total)':'var(--sur)';
+    return `<span style="color:${c}">${s}${money(d)}</span>`;
+  };
+
+  // Norte quincenal
+  let nqBody='', nqFtot=[0,0,0,0];
+  agg.forEach(a=>{
+    const t=a.nC1+a.nC2; nqFtot[0]+=a.nC1;nqFtot[1]+=a.nC2;nqFtot[3]+=t;
+    nqBody+=`<tr><td>${a.mes}</td><td class="c1">${money(a.nC1)}</td><td class="c2">${money(a.nC2)}</td><td>${mkDiff(a.nC1,a.nC2)}</td><td class="ct">${money(t)}</td></tr>`;
+  });
+  $('n-qtable').querySelector('tbody').innerHTML=nqBody;
+  $('n-qtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td class="c1">${money(nqFtot[0])}</td><td class="c2">${money(nqFtot[1])}</td><td>${mkDiff(nqFtot[0],nqFtot[1])}</td><td class="ct">${money(nqFtot[3])}</td></tr>`;
+
+  // Sur quincenal
+  let sqBody='', sqFtot=[0,0,0,0];
+  agg.forEach(a=>{
+    const t=a.sC1+a.sC2; sqFtot[0]+=a.sC1;sqFtot[1]+=a.sC2;sqFtot[3]+=t;
+    sqBody+=`<tr><td>${a.mes}</td><td class="c1">${money(a.sC1)}</td><td class="c2">${money(a.sC2)}</td><td>${mkDiff(a.sC1,a.sC2)}</td><td class="ct">${money(t)}</td></tr>`;
+  });
+  $('s-qtable').querySelector('tbody').innerHTML=sqBody;
+  $('s-qtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td class="c1">${money(sqFtot[0])}</td><td class="c2">${money(sqFtot[1])}</td><td>${mkDiff(sqFtot[0],sqFtot[1])}</td><td class="ct">${money(sqFtot[3])}</td></tr>`;
+
+  // Total quincenal
+  let tqBody='', tqFtot=[0,0,0,0];
+  agg.forEach(a=>{
+    const c1=a.nC1+a.sC1,c2=a.nC2+a.sC2,t=c1+c2; tqFtot[0]+=c1;tqFtot[1]+=c2;tqFtot[3]+=t;
+    tqBody+=`<tr><td>${a.mes}</td><td class="c1">${money(c1)}</td><td class="c2">${money(c2)}</td><td>${mkDiff(c1,c2)}</td><td class="ct">${money(t)}</td></tr>`;
+  });
+  $('t-qtable').querySelector('tbody').innerHTML=tqBody;
+  $('t-qtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td class="c1">${money(tqFtot[0])}</td><td class="c2">${money(tqFtot[1])}</td><td>${mkDiff(tqFtot[0],tqFtot[1])}</td><td class="ct">${money(tqFtot[3])}</td></tr>`;
+
+  // Norte mensual
+  let nmBody='', nmTc1=0,nmTc2=0,nmTt=0;
+  agg.forEach(a=>{const t=a.nC1+a.nC2;nmTc1+=a.nC1;nmTc2+=a.nC2;nmTt+=t;
+    nmBody+=`<tr><td>${a.mes}</td><td style="color:var(--norte)">${money(a.nC1)}</td><td style="color:var(--norte)">${a.nC2?money(a.nC2):'<span class="cdim">—</span>'}</td><td>${money(t)}</td></tr>`;});
+  $('n-mtable').querySelector('tbody').innerHTML=nmBody;
+  $('n-mtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td style="color:var(--norte)">${money(nmTc1)}</td><td style="color:var(--norte)">${money(nmTc2)}</td><td style="color:var(--norte)">${money(nmTt)}</td></tr>`;
+
+  // Sur mensual
+  let smBody='', smTc1=0,smTc2=0,smTt=0;
+  agg.forEach(a=>{const t=a.sC1+a.sC2;smTc1+=a.sC1;smTc2+=a.sC2;smTt+=t;
+    smBody+=`<tr><td>${a.mes}</td><td style="color:var(--sur)">${money(a.sC1)}</td><td style="color:var(--sur)">${a.sC2?money(a.sC2):'<span class="cdim">—</span>'}</td><td>${money(t)}</td></tr>`;});
+  $('s-mtable').querySelector('tbody').innerHTML=smBody;
+  $('s-mtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td style="color:var(--sur)">${money(smTc1)}</td><td style="color:var(--sur)">${money(smTc2)}</td><td style="color:var(--sur)">${money(smTt)}</td></tr>`;
+
+  // Total mensual
+  let tmBody='';
+  agg.forEach(a=>{const n=a.nC1+a.nC2,s=a.sC1+a.sC2,t=n+s;
+    tmBody+=`<tr><td>${a.mes}</td><td style="color:var(--norte)">${money(n)}</td><td style="color:var(--sur)">${money(s)}</td><td style="color:var(--total)">${money(t)}</td></tr>`;});
+  $('t-mtable').querySelector('tbody').innerHTML=tmBody;
+  $('t-mtable').querySelector('tfoot').innerHTML=`<tr><td style="color:var(--accent)">Total</td><td style="color:var(--norte)">${money(totNorte)}</td><td style="color:var(--sur)">${money(totSur)}</td><td style="color:var(--total)">${money(totGen)}</td></tr>`;
+
+  // Lotes tables
+  const lotRowsSur = agg.map(a=>`<tr><td>${a.mes}</td><td style="color:var(--sur)">${a.lTot||0}</td><td>${a.lAnt||0}</td><td>${a.lLiq||0}</td><td style="color:var(--dim)">${a.lRev||0}</td><td style="color:var(--dim)">${a.lDsp||0}</td></tr>`).join('');
+  $('s-ltable').querySelector('tbody').innerHTML=lotRowsSur;
+  const lotRowsNorte = agg.map(a=>`<tr><td>${a.mes}</td><td style="color:var(--norte)">${a.nTinv||0}</td><td>${a.lnAnt||0}</td><td>${a.lnLiq||0}</td><td style="color:var(--dim)">${a.lnRev||0}</td><td style="color:var(--dim)">${a.lnDsp||0}</td></tr>`).join('');
+  $('n-ltable').querySelector('tbody').innerHTML=lotRowsNorte;
+  const lotRowsT = agg.map(a=>{
+    const tot  = (a.lTot||0);
+    const ant  = (a.lAnt||0)  + (a.lnAnt||0);
+    const liq  = (a.lLiq||0)  + (a.lnLiq||0);
+    const rev  = (a.lRev||0)  + (a.lnRev||0);
+    const dsp  = (a.lDsp||0)  + (a.lnDsp||0);
+    const ndp  = (a.lNdp||0);
+    return `<tr>
+      <td>${a.mes}</td>
+      <td style="color:var(--total)">${tot}</td>
+      <td>${ant}</td>
+      <td>${liq}</td>
+      <td style="color:var(--dim)">${rev}</td>
+      <td style="color:var(--dim)">${dsp}</td>
+      <td style="color:var(--dim)">${ndp}</td>
+    </tr>`;
+  }).join('');
+  $('t-ltable').querySelector('tbody').innerHTML=lotRowsT;
+
+  // Progress bars
+  const mkProg = (lbl,val,tot,color) => `
+    <div class="prog-row">
+      <div class="prog-hdr"><span class="prog-lbl">${lbl}</span><span class="prog-num" style="color:${color}">${val} · ${pct(val,tot)}</span></div>
+      <div class="prog-track"><div class="prog-fill" style="width:${Math.min(100,val/tot*100)||0.5}%;background:${color}"></div></div>
+    </div>`;
+  $('n-progs').innerHTML = mkProg('Vendido',lastA.nVend,lastA.nTinv,'var(--norte)')+mkProg('En proceso',lastA.nProc,lastA.nTinv,'var(--dim)')+mkProg('Disponible',lastA.nDisp||0,lastA.nTinv,'var(--surface3)');
+  $('s-progs').innerHTML = mkProg('Vendido',lastA.sVend,lastA.sTinv,'var(--sur)')+mkProg('En proceso',lastA.sProc,lastA.sTinv,'var(--dim)')+mkProg('Disponible',lastA.sDisp||0,lastA.sTinv,'var(--surface3)');
+
+  /* ── COBRANZA charts & tables ── */
+
+  // Norte cobranza bar — mensual (Ene, Feb) + quincenal 15 Mar
+  const cobMLabels = agg.map(a=> a.mes==='Marzo' ? '15 Mar' : a.mes);
+  mkChart('n-cob-bar',{type:'bar',data:{labels:cobMLabels,datasets:[
+    {label:'Al corriente', data:agg.map(a=>a.cnCorriente||0), backgroundColor:'rgba(126,200,160,0.85)',borderRadius:2},
+    {label:'Con PDP',      data:agg.map(a=>a.cnPdp||0),       backgroundColor:'rgba(201,168,76,0.7)', borderRadius:2},
+    {label:'Atraso 1m',   data:agg.map(a=>a.cnA1||0),        backgroundColor:'rgba(255,230,50,0.9)', borderRadius:2},
+    {label:'Atraso 2m',   data:agg.map(a=>a.cnA2||0),        backgroundColor:'rgba(212,148,79,0.85)',borderRadius:2},
+    {label:'Atraso 3m+',  data:agg.map(a=>a.cnA3||0),        backgroundColor:'rgba(212,80,80,0.85)', borderRadius:2},
+    {label:'Liquidados',  data:agg.map(a=>a.cnLiq||0),       backgroundColor:'rgba(79,163,212,0.7)', borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:8,font:{size:9}}}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID}}}}});
+
+  // Norte cobranza table
+  $('n-cob-table').querySelector('thead').innerHTML=`<tr><th>Concepto</th>${agg.map(a=>`<th>${a.mes==='Marzo'?'15 Mar':a.mes}</th>`).join('')}</tr>`;
+  $('n-cob-table').querySelector('tbody').innerHTML = [
+    ['Al corriente','cnCorriente','var(--total)'],
+    ['Con PDP (mes en curso)','cnPdp','var(--accent)'],
+    ['Atraso 1 mes','cnA1','#f0e040'],
+    ['Atraso 2 meses','cnA2','var(--sur)'],
+    ['Atraso 3+ meses','cnA3','#d45050'],
+    ['Liquidados','cnLiq','var(--norte)'],
+  ].map(([lbl,key,clr])=>
+    `<tr><td>${lbl}</td>${agg.map(a=>`<td style="color:${(a[key]||0)>0?clr:'var(--dim)'}">${a[key]||0}</td>`).join('')}</tr>`
+  ).join('');
+
+  // Norte lotes vendidos bar (con anticipo, liquidados, revisión por mes)
+  mkChart('n-lv-bar',{type:'bar',data:{labels:cobMLabels,datasets:[
+    {label:'Con anticipo', data:agg.map(a=>a.lnAnt||0), backgroundColor:'rgba(79,163,212,0.75)',borderRadius:2},
+    {label:'Liquidados',   data:agg.map(a=>a.lnLiq||0), backgroundColor:'rgba(126,200,160,0.75)',borderRadius:2},
+    {label:'En revisión',  data:agg.map(a=>a.lnRev||0), backgroundColor:'rgba(201,168,76,0.7)', borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:8,font:{size:9}}}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID}}}}});
+
+  $('n-lv-table').querySelector('thead').innerHTML=`<tr><th>Concepto</th>${agg.map(a=>`<th>${a.mes==='Marzo'?'15 Mar':a.mes}</th>`).join('')}</tr>`;
+  $('n-lv-table').querySelector('tbody').innerHTML = [
+    ['Con anticipo','lnAnt','var(--norte)'],
+    ['Liquidados','lnLiq','var(--total)'],
+    ['En revisión – prospectos','lnRev','var(--accent)'],
+    ['Disponibles','lnDsp','var(--dim)'],
+  ].map(([lbl,key,clr])=>
+    `<tr><td>${lbl}</td>${agg.map(a=>`<td style="color:${clr}">${a[key]||0}</td>`).join('')}</tr>`
+  ).join('');
+
+  // Sur cobranza bar
+  mkChart('s-cob-bar',{type:'bar',data:{labels:cobMLabels,datasets:[
+    {label:'Al corriente', data:agg.map(a=>a.csCorriente||0),backgroundColor:'rgba(126,200,160,0.85)',borderRadius:2},
+    {label:'Con PDP',      data:agg.map(a=>a.csPdp||0),      backgroundColor:'rgba(201,168,76,0.7)', borderRadius:2},
+    {label:'Atraso 1m',   data:agg.map(a=>a.csA1||0),       backgroundColor:'rgba(255,230,50,0.9)', borderRadius:2},
+    {label:'Atraso 2m',   data:agg.map(a=>a.csA2||0),       backgroundColor:'rgba(212,148,79,0.85)',borderRadius:2},
+    {label:'Atraso 3m+',  data:agg.map(a=>a.csA3||0),       backgroundColor:'rgba(212,80,80,0.85)', borderRadius:2},
+    {label:'Liquidados',  data:agg.map(a=>a.csLiq||0),      backgroundColor:'rgba(79,163,212,0.7)', borderRadius:2},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:8,font:{size:9}}}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID}}}}});
+
+  $('s-cob-table').querySelector('thead').innerHTML=`<tr><th>Concepto</th>${agg.map(a=>`<th>${a.mes==='Marzo'?'15 Mar':a.mes}</th>`).join('')}</tr>`;
+  $('s-cob-table').querySelector('tbody').innerHTML = [
+    ['Al corriente','csCorriente','var(--total)'],
+    ['Con PDP (mes en curso)','csPdp','var(--accent)'],
+    ['Atraso 1 mes','csA1','#f0e040'],
+    ['Atraso 2 meses','csA2','var(--sur)'],
+    ['Atraso 3+ meses','csA3','#d45050'],
+    ['Liquidados','csLiq','var(--norte)'],
+  ].map(([lbl,key,clr])=>
+    `<tr><td>${lbl}</td>${agg.map(a=>`<td style="color:${(a[key]||0)>0?clr:'var(--dim)'}">${a[key]||0}</td>`).join('')}</tr>`
+  ).join('');
+
+  // Sur lotes entregados donut (último mes)
+  const leData = [lastA.lesCv||0, lastA.lesCva||0, lastA.lesCp||0];
+  const leTotal = leData.reduce((s,v)=>s+v,0);
+  mkChart('s-le-donut',{type:'doughnut',data:{
+    labels:['C-V sin addendum','C-V con addendum','C-P (promesa)'],
+    datasets:[{data:leData,backgroundColor:['rgba(79,163,212,0.85)','rgba(201,168,76,0.8)','rgba(126,200,160,0.85)'],borderColor:'#12151d',borderWidth:3,hoverOffset:5}]
+  },options:{cutout:'55%',plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9}}}}}});
+
+  $('s-le-table').querySelector('tbody').innerHTML = [
+    ['C-V sin addendum','lesCv','var(--norte)'],
+    ['C-V con addendum','lesCva','var(--accent)'],
+    ['C-P (promesa)','lesCp','var(--total)'],
+  ].map(([lbl,key,clr])=>`<tr><td>${lbl}</td><td style="color:${clr}">${lastA[key]||0}</td><td style="color:${clr}">${leTotal?((lastA[key]||0)/leTotal*100).toFixed(0)+'%':'—'}</td></tr>`).join('');
+
+  // Total cobranza grouped bar Norte vs Sur (último mes disponible)
+  mkChart('t-cob-bar',{type:'bar',
+    data:{labels:['Al corriente','Con PDP','Atraso 1m','Atraso 2m','Atraso 3m+','Liquidados'],
+    datasets:[
+      {label:'Norte',data:[lastA.cnCorriente||0, lastA.cnPdp||0, lastA.cnA1||0, lastA.cnA2||0, lastA.cnA3||0, lastA.cnLiq||0],backgroundColor:'rgba(79,163,212,0.78)',borderRadius:2},
+      {label:'Sur',  data:[lastA.csCorriente||0, lastA.csPdp||0, lastA.csA1||0, lastA.csA2||0, lastA.csA3||0, lastA.csLiq||0],backgroundColor:'rgba(212,148,79,0.78)',borderRadius:2},
+    ]},
+    options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9}}}},
+    scales:{x:{grid:{color:GRID},ticks:{font:{size:9}}},y:{grid:{color:GRID}}}}});
+
+  $('t-cob-table').querySelector('tbody').innerHTML = [
+    ['Al corriente','cnCorriente','csCorriente','var(--total)'],
+    ['Con PDP (mes en curso)','cnPdp','csPdp','var(--accent)'],
+    ['Atraso 1 mes','cnA1','csA1','#f0e040'],
+    ['Atraso 2 meses','cnA2','csA2','var(--sur)'],
+    ['Atraso 3+ meses','cnA3','csA3','#d45050'],
+    ['Liquidados','cnLiq','csLiq','var(--norte)'],
+  ].map(([lbl,kn,ks,clr])=>`<tr><td>${lbl}</td><td style="color:var(--norte)">${lastA[kn]||0}</td><td style="color:var(--sur)">${lastA[ks]||0}</td></tr>`).join('');
+
+  // Total lotes entregados months summary
+  $('t-le-months').innerHTML = agg.map(a=>`
+    <div style="background:var(--surface2);padding:12px;text-align:center">
+      <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:6px">${a.mes==='Marzo'?'15 Mar':a.mes}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--total)">${a.lesTot||0}</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">entregados Sur</div>
+    </div>`).join('');
+
+  $('t-le-table').querySelector('tbody').innerHTML = [
+    ['C-V sin addendum','lesCv','var(--norte)'],
+    ['C-V con addendum','lesCva','var(--accent)'],
+    ['C-P (promesa)','lesCp','var(--total)'],
+  ].map(([lbl,key,clr])=>`<tr><td>${lbl}</td>${agg.map(a=>`<td style="color:${clr}">${a[key]||0}</td>`).join('')}</tr>`).join('');
+
+  /* ── ESTIMADO MENSUAL ── */
+  const estN = lastA.estN || 0;
+  const estS = lastA.estS || 0;
+  const estT = lastA.estT || 0;
+  const ingN = (lastA.nC1||0) + (lastA.nC2||0);
+  const ingS = (lastA.sC1||0) + (lastA.sC2||0);
+  const ingT = ingN + ingS;
+  const avN  = estN ? (ingN/estN*100).toFixed(1)+'%' : '—';
+  const avS  = estS ? (ingS/estS*100).toFixed(1)+'%' : '—';
+  const avT  = estT ? (ingT/estT*100).toFixed(1)+'%' : '—';
+
+  // Norte panel
+  if($('dash-est-n')){
+    $('dash-est-n').textContent     = estN ? money(estN) : 'Sin capturar';
+    $('dash-est-n-pct').textContent = avN;
+    $('dash-est-n-sub').textContent = estN ? money(ingN)+' ingresado de '+money(estN) : 'Captura el estimado en el formulario';
+  }
+  // Sur panel
+  if($('dash-est-s')){
+    $('dash-est-s').textContent     = estS ? money(estS) : 'Sin capturar';
+    $('dash-est-s-pct').textContent = avS;
+    $('dash-est-s-sub').textContent = estS ? money(ingS)+' ingresado de '+money(estS) : 'Captura el estimado en el formulario';
+  }
+  // Total panel
+  if($('dash-est-nt')){
+    $('dash-est-nt').textContent    = estN ? money(estN) : 'Sin capturar';
+    $('dash-est-n-avt').textContent = avN+' avance';
+    $('dash-est-st').textContent    = estS ? money(estS) : 'Sin capturar';
+    $('dash-est-s-avt').textContent = avS+' avance';
+    $('dash-est-tt').textContent    = estT ? money(estT) : 'Sin capturar';
+    $('dash-est-t-avt').textContent = avT+' avance';
+  }
+
+  /* ── SCT KPIs ── */
+  if($('kt-sct-q2')){
+    // Unir meses de quincenales + meses de SCT diario
+    const mesOrden = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const mesesSCTDiario = [...new Set(sctAll.map(r=>r.mes))];
+    const mesesQuincenal = agg.map(a=>a.mes);
+    const todosMeses = mesOrden.filter(m => mesesQuincenal.includes(m) || mesesSCTDiario.includes(m));
+
+    // Construir selector de mes SCT
+    const tSel = $('t-mes-selector');
+    tSel.querySelectorAll('button').forEach(b=>b.remove());
+    todosMeses.forEach((mes, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = mes;
+      btn.style.cssText = 'padding:5px 12px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;transition:all .2s;border-radius:2px';
+      const isActive = i === todosMeses.length-1;
+      btn.style.background = isActive ? 'var(--total)' : 'var(--surface2)';
+      btn.style.color = isActive ? '#0c0e13' : 'var(--dim)';
+      btn.onclick = () => {
+        tSel.querySelectorAll('button').forEach(b=>{ b.style.background='var(--surface2)'; b.style.color='var(--dim)'; });
+        btn.style.background='var(--total)'; btn.style.color='#0c0e13';
+        window._updateSCTKPIs(mes);
+      };
+      tSel.appendChild(btn);
+    });
+    window._updateSCTKPIs(todosMeses[todosMeses.length-1]);
+
+  }
+}
+
+/* ══════════════════════════════════════════
+   FORM LOGIC
+══════════════════════════════════════════ */
+let curStep=1;
+const doneSteps=new Set();
+
+// Init date
+const now=new Date();
+$('f-fecha').value=now.toISOString().split('T')[0];
+const mesNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$('f-mes').value=mesNames[now.getMonth()];
+$('f-corte').value=now.getDate()<=15?'1':'2';
+
+function updNTotal(){
+  const t=(parseFloat($('n-c1').value)||0)+(parseFloat($('n-c2').value)||0);
+  $('n-tot-prev').textContent='$'+t.toLocaleString('es-MX',{minimumFractionDigits:0});
+}
+function updSTotal(){
+  const t=(parseFloat($('s-c1').value)||0)+(parseFloat($('s-c2').value)||0);
+  $('s-tot-prev').textContent='$'+t.toLocaleString('es-MX',{minimumFractionDigits:0});
+}
+
+function goStep(s){
+  if(s>curStep) doneSteps.add(curStep);
+  curStep=s;
+  for(let i=1;i<=6;i++){
+    const sec=$('fsec'+i); if(sec) sec.classList.toggle('active',i===s);
+    const st=$('fs'+i); if(!st) continue;
+    const sn=$('sn'+i);
+    st.classList.toggle('active',i===s);
+    st.classList.toggle('done',doneSteps.has(i)&&i!==s);
+    sn.textContent=doneSteps.has(i)&&i!==s?'✓':i;
+  }
+  if(s===6) buildPreview();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function buildPreview(){
+  const nC1=n('n-c1'),nC2=n('n-c2'),sC1=n('s-c1'),sC2=n('s-c2');
+  const nT=nC1+nC2, sT=sC1+sC2, gT=nT+sT;
+  const mes=$('f-mes').value||'—';
+  const corte=$('f-corte').value==='1'?'1er Corte':'2do Corte';
+  $('prev-kpis').innerHTML=`
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--norte)">${money(nT)}</div><div class="prev-kpi-lbl">S.C. Norte</div></div>
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--sur)">${money(sT)}</div><div class="prev-kpi-lbl">S.C. Sur</div></div>
+    <div class="prev-kpi"><div class="prev-kpi-val" style="color:var(--total)">${money(gT)}</div><div class="prev-kpi-lbl">Total General</div></div>`;
+  $('prev-detail').innerHTML=`
+    <h3>${mes} · ${corte}</h3>
+    <table class="dtable" style="margin-bottom:14px">
+      <thead><tr><th>Fraccionamiento</th><th>1er Corte</th><th>2do Corte</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Norte</td><td style="color:var(--norte)">${money(nC1)}</td><td style="color:var(--norte)">${money(nC2)}</td><td>${money(nT)}</td></tr>
+        <tr><td>Sur</td>  <td style="color:var(--sur)">${money(sC1)}</td><td style="color:var(--sur)">${money(sC2)}</td><td>${money(sT)}</td></tr>
+      </tbody>
+      <tfoot><tr><td style="color:var(--accent)">Total</td><td style="color:var(--total)">${money(nC1+sC1)}</td><td style="color:var(--total)">${money(nC2+sC2)}</td><td style="color:var(--total)">${money(gT)}</td></tr></tfoot>
+    </table>
+    <div style="font-size:11px;color:var(--dim)">Norte: ${n('n-vend')} vendidos · ${n('n-proc')} en proceso &nbsp;|&nbsp; Sur: ${n('s-vend')} vendidos · ${n('s-proc')} en proceso</div>`;
+}
+
+function saveRecord(){
+  const rec={
+    id: Date.now().toString(),
+    fecha:$('f-fecha').value, mes:$('f-mes').value, corte:$('f-corte').value,
+    metaN:n('f-meta-n')||33, metaS:n('f-meta-s')||33,
+    nC1:n('n-c1'), nC2:n('n-c2'), nVend:n('n-vend'), nProc:n('n-proc'), nDisp:n('n-disp'), nVmes:n('n-vmes'), nTinv:n('n-tinv'),
+    sC1:n('s-c1'), sC2:n('s-c2'), sVend:n('s-vend'), sProc:n('s-proc'), sDisp:n('s-disp'), sVmes:n('s-vmes'), sTinv:n('s-tinv'),
+    lTot:n('l-tot'), lAnt:n('l-ant'), lLiq:n('l-liq'), lRev:n('l-rev'), lDsp:n('l-dsp'), lNdp:n('l-ndp'),
+    estN:n('f-est-n'), estS:n('f-est-s'), estT:n('f-est-t'),
+    // Cobranza Sur
+    csCorriente:n('cs-corriente'), csPdp:n('cs-pdp'), csA1:n('cs-a1'), csA2:n('cs-a2'), csA3:n('cs-a3'), csLiq:n('cs-liq'),
+    // Cobranza Norte
+    cnCorriente:n('cn-corriente'), cnA1:n('cn-a1'), cnA2:n('cn-a2'), cnA3:n('cn-a3'), cnLiq:n('cn-liq'),
+    // Lotes entregados Sur
+    lesTot:n('les-tot'), lesCv:n('les-cv'), lesCva:n('les-cva'), lesCp:n('les-cp'),
+    // Lotes entregados Norte
+    lenTot:n('len-tot'), lenCv:n('len-cv'), lenCva:n('len-cva'), lenCp:n('len-cp'),
+    notas:$('f-notas').value,
+  };
+  const recs=loadRecords();
+  recs.push(rec);
+  saveRecords(recs);
+  ['n-c1','n-c2','s-c1','s-c2','n-vend','n-proc','n-disp','n-vmes','n-tinv','s-vend','s-proc','s-disp','s-vmes','s-tinv',
+   'l-tot','l-ant','l-liq','l-rev','l-dsp','l-ndp',
+   'cs-corriente','cs-pdp','cs-a1','cs-a2','cs-a3','cs-liq',
+   'cn-corriente','cn-a1','cn-a2','cn-a3','cn-liq',
+   'les-tot','les-cv','les-cva','les-cp','len-tot','len-cv','len-cva','len-cp',
+   'f-est-n','f-est-s','f-est-t','f-notas'
+  ].forEach(id=>{const el=$(id);if(el)el.value='';});
+  $('n-tot-prev').textContent='$0'; $('s-tot-prev').textContent='$0';
+  doneSteps.clear(); curStep=1; goStep(1);
+  showToast('✓ Registro guardado — dashboard actualizado');
+  showView('dashboard');
+}
+
+/* ══════════════════════════════════════════
+   HISTORIAL
+══════════════════════════════════════════ */
+function renderHistorial(){
+  const recs=loadRecords();
+  const el=$('hist-list');
+  if(!recs.length){ el.innerHTML='<div class="empty">No hay registros guardados aún.</div>'; return; }
+  const sorted=[...recs].reverse();
+  el.innerHTML=sorted.map(r=>{
+    const nT=r.nC1+r.nC2, sT=r.sC1+r.sC2, gT=nT+sT;
+    const corteLabel=r.corte==='1'?'1er Corte':'2do Corte';
+    const isSeed=r.id.startsWith('seed');
+    return `<div class="hist-item">
+      <div class="hist-left">
+        <div class="hist-date">${r.fecha} · ${corteLabel}</div>
+        <div class="hist-label">${r.mes} 2026</div>
+        ${r.notas?`<div style="font-size:11px;color:var(--dim);margin-top:2px">${r.notas}</div>`:''}
+      </div>
+      <div class="hist-right">
+        <div class="hist-val"><span>Norte</span><strong style="color:var(--norte)">${money(nT)}</strong></div>
+        <div class="hist-val"><span>Sur</span><strong style="color:var(--sur)">${money(sT)}</strong></div>
+        <div class="hist-val"><span>Total</span><strong style="color:var(--total)">${money(gT)}</strong></div>
+        ${!isSeed?`<button class="rec-del" onclick="delRecord('${r.id}')" title="Eliminar">✕</button>`:
+                   `<button class="rec-del" onclick="delRecord('${r.id}')" title="Eliminar dato inicial">✕</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function resetSeeds(){
+  const userRecs = loadRecords().filter(r => !r.id.startsWith('seed'));
+  saveRecords([...SEEDS, ...userRecs]);
+  localStorage.setItem('sc_seed_ver', SEED_VER);
+  renderHistorial();
+  showToast('✓ Datos base corregidos');
+}
+
+function delRecord(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  saveRecords(loadRecords().filter(r=>r.id!==id));
+  renderHistorial();
+}
+
+function clearAll(){
+  if(!confirm('¿Borrar TODOS los registros? Esta acción no se puede deshacer.')) return;
+  localStorage.removeItem(STORE_KEY);
+  renderHistorial();
+}
+
+/* ══════════════════════════════════════════
+   SCT — INGRESO DIARIO
+══════════════════════════════════════════ */
+
+// Init SCT form
+(function initSCT(){
+  const now = new Date();
+  const iso = now.toISOString().split('T')[0];
+  if($('sct-fecha')) $('sct-fecha').value = iso;
+  const mesNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if($('sct-mes')) $('sct-mes').value = mesNames[now.getMonth()];
+  if($('sct-corte')) $('sct-corte').value = now.getDate()<=15?'1':'2';
+})();
+
+function sctPreview(){
+  // just live feedback — nothing needed
+}
+
+function saveSCT(){
+  const monto = parseFloat($('sct-monto').value)||0;
+  if(!monto){ alert('Ingresa un monto mayor a 0'); return; }
+  const mes = $('sct-mes').value;
+  if(!mes){ alert('Selecciona el mes'); return; }
+  const rec = {
+    id: 'sct_'+Date.now(),
+    fecha: $('sct-fecha').value,
+    mes,
+    corte: $('sct-corte').value,
+    concepto: $('sct-concepto').value||'',
+    monto,
+    norte: null,   // sin distribuir
+    sur: null,
+    distribuido: false,
+  };
+  const all = loadSCT();
+  all.push(rec);
+  saveSCT_data(all);
+  $('sct-monto').value = '';
+  $('sct-concepto').value = '';
+  showToast('✓ Ingreso registrado');
+  renderSCT();
+  renderDashboard();
+}
+
+function sctDistPreview(){
+  const n = parseFloat($('sct-dist-n').value)||0;
+  const s = parseFloat($('sct-dist-s').value)||0;
+  const tot = parseFloat($('sct-dist-tot').dataset.tot)||0;
+  const sum = n+s;
+  const np = tot ? (n/tot*100) : 0;
+  const sp = tot ? (s/tot*100) : 0;
+  $('sct-dist-n-pct').textContent = 'Norte: '+np.toFixed(1)+'%';
+  $('sct-dist-s-pct').textContent = 'Sur: '+sp.toFixed(1)+'%';
+  $('sct-dist-bar-n').style.width = np+'%';
+  $('sct-dist-bar-s').style.width = sp+'%';
+  $('sct-dist-warn').style.display = tot && Math.abs(sum-tot)>1 ? 'block' : 'none';
+}
+
+function saveSCTDist(){
+  const mes = $('sct-dist-mes').value;
+  if(!mes){ alert('Selecciona el mes a distribuir'); return; }
+  const norte = parseFloat($('sct-dist-n').value)||0;
+  const sur   = parseFloat($('sct-dist-s').value)||0;
+  const tot   = parseFloat($('sct-dist-tot').dataset.tot)||0;
+  if(Math.abs(norte+sur-tot)>1){
+    if(!confirm('La suma ('+money(norte+sur)+') no coincide con el total del mes ('+money(tot)+'). ¿Guardar de todas formas?')) return;
+  }
+  const all = loadSCT();
+  // Distribute proportionally across all records of that month
+  const mesTot = all.filter(r=>r.mes===mes).reduce((s,r)=>s+r.monto,0);
+  all.forEach(r=>{
+    if(r.mes===mes){
+      const prop = mesTot ? r.monto/mesTot : 0;
+      r.norte = parseFloat((norte*prop).toFixed(2));
+      r.sur   = parseFloat((sur*prop).toFixed(2));
+      r.distribuido = true;
+    }
+  });
+  saveSCT_data(all);
+  $('sct-dist-n').value = '';
+  $('sct-dist-s').value = '';
+  sctDistPreview();
+  showToast('✓ Distribución guardada');
+  renderSCT();
+}
+
+function delSCT(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  saveSCT_data(loadSCT().filter(r=>r.id!==id));
+  renderSCT();
+}
+
+function renderSCT(){
+  const all = loadSCT();
+  const now = new Date();
+  const mesNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesMes = mesNames[now.getMonth()];
+  const hoy = now.toISOString().split('T')[0];
+
+  // KPIs
+  const hoyRecs = all.filter(r=>r.fecha===hoy);
+  const hoyTotal = hoyRecs.reduce((s,r)=>s+r.monto,0);
+  const mesRecs  = all.filter(r=>r.mes===mesMes);
+  const mesTotal = mesRecs.reduce((s,r)=>s+r.monto,0);
+  const noDist   = all.filter(r=>!r.distribuido).reduce((s,r)=>s+r.monto,0);
+
+  $('sct-k-hoy').textContent     = money(hoyTotal);
+  $('sct-k-mes').textContent     = money(mesTotal);
+  $('sct-k-mes-sub').textContent = mesMes+' — acumulado';
+  $('sct-k-dias').textContent    = mesRecs.length;
+  $('sct-k-nodist').textContent  = money(noDist);
+
+  // Populate distribución month selector
+  const meses = [...new Set(all.map(r=>r.mes))];
+  const distSel = $('sct-dist-mes');
+  const filtSel = $('sct-filtro-mes');
+  [distSel, filtSel].forEach(sel=>{
+    if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = sel===distSel ? '<option value="">Seleccionar mes...</option>' : '<option value="">Todos los meses</option>';
+    meses.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o); });
+    if(meses.includes(cur)) sel.value=cur;
+  });
+
+  // Update dist total when month changes
+  if(distSel) distSel.onchange = ()=>{
+    const m = distSel.value;
+    const t = all.filter(r=>r.mes===m).reduce((s,r)=>s+r.monto,0);
+    $('sct-dist-tot').textContent = money(t);
+    $('sct-dist-tot').dataset.tot = t;
+    $('sct-dist-n').value=''; $('sct-dist-s').value='';
+    sctDistPreview();
+  };
+
+  renderSCTTable();
+  renderSCTChart(all, mesNames);
+}
+
+function renderSCTTable(){
+  const all = loadSCT();
+  const filtMes = $('sct-filtro-mes')?.value||'';
+  const filtered = filtMes ? all.filter(r=>r.mes===filtMes) : all;
+  const sorted = [...filtered].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const total = sorted.reduce((s,r)=>s+r.monto,0);
+  $('sct-tabla-total').textContent = money(total);
+
+  $('sct-tbody').innerHTML = sorted.length ? sorted.map(r=>`
+    <tr>
+      <td style="color:var(--dim)">${r.fecha}</td>
+      <td>${r.mes}</td>
+      <td style="color:var(--dim)">${r.corte==='1'?'1er corte':'2do corte'}</td>
+      <td style="color:var(--dim);font-size:11px">${r.concepto||'—'}</td>
+      <td style="color:var(--total)">${money(r.monto)}</td>
+      <td style="color:var(--norte)">${r.norte!=null?money(r.norte):'<span style="color:var(--dim)">—</span>'}</td>
+      <td style="color:var(--sur)">${r.sur!=null?money(r.sur):'<span style="color:var(--dim)">—</span>'}</td>
+      <td>${r.distribuido
+        ? '<span style="color:var(--total);font-size:10px;letter-spacing:.08em">✓ DISTRIBUIDO</span>'
+        : '<span style="color:var(--sur);font-size:10px;letter-spacing:.08em">PENDIENTE</span>'}</td>
+      <td><button class="rec-del" onclick="delSCT(\'${r.id}\')" title="Eliminar">✕</button></td>
+    </tr>`).join('')
+    : '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--dim)">Sin registros. Captura el primer ingreso del día.</td></tr>';
+}
+
+function renderSCTChart(all, mesNames){
+  // Group by month, sum montos
+  const byMes = {};
+  all.forEach(r=>{ byMes[r.mes]=(byMes[r.mes]||0)+r.monto; });
+  const orden = mesNames.filter(m=>byMes[m]);
+  if(!orden.length) return;
+  mkChart('sct-chart',{type:'bar',data:{
+    labels:orden,
+    datasets:[
+      {label:'Total SCT',data:orden.map(m=>byMes[m]),backgroundColor:'rgba(126,200,160,0.7)',borderRadius:3},
+      {label:'Distribuido Norte',data:orden.map(m=>all.filter(r=>r.mes===m&&r.distribuido).reduce((s,r)=>s+(r.norte||0),0)),backgroundColor:'rgba(79,163,212,0.7)',borderRadius:3},
+      {label:'Distribuido Sur',  data:orden.map(m=>all.filter(r=>r.mes===m&&r.distribuido).reduce((s,r)=>s+(r.sur||0),0)),  backgroundColor:'rgba(212,148,79,0.7)',borderRadius:3},
+    ]
+  },options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:14}}},scales:{x:{grid:{color:GRID}},y:{grid:{color:GRID},ticks:{callback:fmtM}}}}});
+}
+
+/* ══════════════════════════════════════════
+   EXPORTAR PARA COMPARTIR
+   Genera un HTML con los datos ya incrustados
+   para que el jefe vea exactamente lo mismo
+══════════════════════════════════════════ */
+function exportarParaCompartir(){
+  const registros = loadRecords();
+  const sctDatos  = loadSCT();
+  const hoy = new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+
+  // Obtener el HTML de la página actual como texto
+  let html = document.documentElement.outerHTML;
+
+  // Reemplazar las dos variables de datos incrustados con los datos reales
+  // Usando regex para capturar la línea completa independientemente del valor actual
+  html = html.replace(
+    /var DATOS_EXPORTADOS\s*=\s*[\s\S]*?; \/\/ Exportado[^\n]*/,
+    'var DATOS_EXPORTADOS     = ' + JSON.stringify(registros) + '; // Exportado ' + hoy
+  );
+  html = html.replace(
+    /var DATOS_SCT_EXPORTADOS\s*=\s*[\s\S]*?; \/\/ Exportado[^\n]*/,
+    'var DATOS_SCT_EXPORTADOS = ' + JSON.stringify(sctDatos) + '; // Exportado ' + hoy
+  );
+
+  // Descargar
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'SantaCatalina_Dashboard_' + new Date().toISOString().split('T')[0] + '.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ Dashboard exportado — listo para compartir');
+}
+
+function showToast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+/* ── Init ── */
+Chart.defaults.color='#676778';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+Chart.defaults.font.size=13;
+renderDashboard();
+</script>
+
+
+</body></html>
